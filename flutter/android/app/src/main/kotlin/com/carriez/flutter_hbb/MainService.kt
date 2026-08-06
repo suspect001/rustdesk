@@ -128,6 +128,7 @@ class MainService : Service() {
                     }
                     if (authorized) {
                         if (!isFileTransfer && !isStart) {
+                            wakeAndUnlock()
                             startCapture()
                         }
                         onClientAuthorizedNotification(id, type, username, peerId)
@@ -193,6 +194,20 @@ class MainService : Service() {
 
     private val powerManager: PowerManager by lazy { applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager }
     private val wakeLock: PowerManager.WakeLock by lazy { powerManager.newWakeLock(PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "rustdesk:wakelock")}
+
+    // Wake up the screen and dismiss keyguard when a session starts, so that
+    // MediaProjection starts producing frames even if the device was locked
+    // and the screen was off. Without this the remote side stays on
+    // "connected, waiting for screen transfer" forever.
+    private fun wakeAndUnlock() {
+        if (!powerManager.isInteractive) {
+            Log.d(logTag, "wakeAndUnlock: wake up screen")
+            if (!wakeLock.isHeld) {
+                wakeLock.acquire(60_000)
+            }
+        }
+        InputService.ctx?.dismissKeyguard()
+    }
 
     companion object {
         private var _isReady = false // media permission ready status
@@ -353,7 +368,14 @@ class MainService : Service() {
                 _isReady = true
             } ?: let {
                 Log.d(logTag, "getParcelableExtra intent null, invoke requestMediaProjection")
-                requestMediaProjection()
+                try {
+                    requestMediaProjection()
+                } catch (e: Exception) {
+                    // Background activity start may be blocked (e.g. boot
+                    // completed on some OEM ROMs). Guide the user manually.
+                    Log.e(logTag, "requestMediaProjection failed:$e")
+                    sendGuideNotification(this, "请点击以授予屏幕录制权限(被控需要)", null)
+                }
             }
         }
         return START_NOT_STICKY // don't use sticky (auto restart), the new service (from auto restart) will lose control
@@ -422,6 +444,7 @@ class MainService : Service() {
             return false
         }
         
+        wakeAndUnlock()
         updateScreenInfo(resources.configuration.orientation)
         Log.d(logTag, "Start Capture")
         surface = createSurface()

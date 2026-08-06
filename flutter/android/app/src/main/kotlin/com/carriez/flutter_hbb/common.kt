@@ -2,6 +2,10 @@ package com.carriez.flutter_hbb
 
 import android.Manifest.permission.*
 import android.annotation.SuppressLint
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.AudioRecord
@@ -94,6 +98,53 @@ fun startAction(context: Context, action: String) {
         })
     } catch (e: Exception) {
         e.printStackTrace()
+    }
+}
+
+// Post a high-priority notification guiding the user to grant a permission
+// that can only be granted manually (accessibility service, media
+// projection, etc). targetAction == null opens the app itself.
+fun sendGuideNotification(context: Context, text: String, targetAction: String?) {
+    try {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "RustDesk",
+                "RustDesk Service",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            nm.createNotificationChannel(channel)
+        }
+        val pi = if (targetAction != null) {
+            PendingIntent.getActivity(
+                context, 0,
+                Intent(targetAction).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
+            PendingIntent.getActivity(
+                context, 0,
+                Intent(context, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
+        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(context, "RustDesk")
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(context)
+        }.setSmallIcon(R.mipmap.ic_stat_logo)
+            .setContentTitle("RustDesk")
+            .setContentText(text)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .setPriority(Notification.PRIORITY_MAX)
+            .build()
+        nm.notify(2026, notification)
+    } catch (e: Exception) {
+        Log.e("guideNotification", "sendGuideNotification failed:$e")
     }
 }
 

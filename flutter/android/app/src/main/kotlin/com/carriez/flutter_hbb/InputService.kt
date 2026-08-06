@@ -79,6 +79,15 @@ class InputService : AccessibilityService() {
         }
     }
 
+    // Dismiss keyguard so that screen content (or the lockscreen password
+    // pad) becomes visible through MediaProjection. Requires the
+    // accessibility service to be enabled.
+    fun dismissKeyguard() {
+        if (Build.VERSION.SDK_INT >= 28) {
+            performGlobalAction(AccessibilityService.GLOBAL_ACTION_DISMISS_KEYGUARD)
+        }
+    }
+
     private val logTag = "input service"
     private var leftIsDown = false
     private var touchPath = Path()
