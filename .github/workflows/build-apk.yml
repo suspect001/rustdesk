@@ -7,8 +7,6 @@ on:
         description: 'RustDesk release 版本号(如 1.4.9),留空则编译你 fork 里的当前代码'
         required: false
         default: ''
-  push:
-    branches: [master, main]
 
 env:
   RUST_VERSION: "1.75"
