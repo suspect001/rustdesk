@@ -53,6 +53,18 @@ class BootReceiver : BroadcastReceiver() {
                     Settings.ACTION_ACCESSIBILITY_SETTINGS
                 )
             }
+
+            // On MIUI the system may kill the background service or recycle
+            // accessibility after reboot unless the app is whitelisted.
+            // Guide the user to the auto-start settings once.
+            if (isXiaomi()) {
+                sendGuideNotification(
+                    context,
+                    "小米手机请点击设置自启动与后台无限制,防止被控服务被系统关闭",
+                    null,
+                    miuiAutoStartIntent(context)
+                )
+            }
         }
     }
 }

@@ -370,10 +370,12 @@ class MainService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("whichService", "this service: ${Thread.currentThread()}")
         super.onStartCommand(intent, flags, startId)
-        if (intent?.action == ACT_INIT_MEDIA_PROJECTION_AND_SERVICE) {
+        // intent is null when the system restarts the service after killing
+        // it (START_STICKY): re-request media projection in that case too.
+        if (intent == null || intent.action == ACT_INIT_MEDIA_PROJECTION_AND_SERVICE) {
             createForegroundNotification()
 
-            if (intent.getBooleanExtra(EXT_INIT_FROM_BOOT, false)) {
+            if (intent == null || intent.getBooleanExtra(EXT_INIT_FROM_BOOT, false)) {
                 FFI.startService()
             }
             Log.d(logTag, "service starting: ${startId}:${Thread.currentThread()}")
@@ -397,7 +399,10 @@ class MainService : Service() {
                 }
             }
         }
-        return START_NOT_STICKY // don't use sticky (auto restart), the new service (from auto restart) will lose control
+        // START_STICKY: restart the service if the system killed it, so the
+        // controlled service comes back (and re-requests media projection)
+        // without any user action.
+        return START_STICKY
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

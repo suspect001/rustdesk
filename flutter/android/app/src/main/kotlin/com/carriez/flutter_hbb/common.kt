@@ -102,10 +102,36 @@ fun startAction(context: Context, action: String) {
     }
 }
 
+fun isXiaomi(): Boolean {
+    return "Xiaomi" == Build.MANUFACTURER || "Xiaomi" == Build.BRAND
+}
+
+// MIUI keeps killing background services / recycling accessibility
+// services after reboot unless the app is whitelisted in the auto-start
+// manager. Return the best matching intent for that page, or null.
+fun miuiAutoStartIntent(context: Context): Intent? {
+    val candidates = listOf(
+        "com.miui.securitycenter/.com.miui.permcenter.autostart.AutoStartManagementActivity",
+        "com.miui.permcenter/.com.miui.permcenter.autostart.AutoStartManagementActivity",
+        "com.miui.securitycenter/.ui.antimalware.AddAutoStartActivity"
+    )
+    for (candidate in candidates) {
+        try {
+            val parts = candidate.split('/')
+            val i = Intent().setClassName(parts[0], parts[1])
+            if (context.packageManager.resolveActivity(i, 0) != null) {
+                return i
+            }
+        } catch (e: Exception) {
+        }
+    }
+    return null
+}
+
 // Post a high-priority notification guiding the user to grant a permission
 // that can only be granted manually (accessibility service, media
 // projection, etc). targetAction == null opens the app itself.
-fun sendGuideNotification(context: Context, text: String, targetAction: String?) {
+fun sendGuideNotification(context: Context, text: String, targetAction: String?, targetIntent: Intent? = null) {
     try {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -116,21 +142,16 @@ fun sendGuideNotification(context: Context, text: String, targetAction: String?)
             )
             nm.createNotificationChannel(channel)
         }
-        val pi = if (targetAction != null) {
-            PendingIntent.getActivity(
-                context, 0,
-                Intent(targetAction).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+        val clickIntent = targetIntent ?: if (targetAction != null) {
+            Intent(targetAction)
         } else {
-            PendingIntent.getActivity(
-                context, 0,
-                Intent(context, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            Intent(context, MainActivity::class.java)
         }
+        clickIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val pi = PendingIntent.getActivity(
+            context, 0, clickIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(context, "RustDesk")
         } else {
