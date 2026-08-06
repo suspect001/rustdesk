@@ -95,15 +95,15 @@ jobs:
       - name: Checkout requested release version
         if: inputs.version != ''
         run: |
-          git fetch --tags --force
-          if git rev-parse -q --verify "refs/tags/${{ inputs.version }}" > /dev/null; then
-            git checkout "${{ inputs.version }}"
-          elif git rev-parse -q --verify "refs/tags/v${{ inputs.version }}" > /dev/null; then
-            git checkout "v${{ inputs.version }}"
-          else
+          TAG="${{ inputs.version }}"
+          TAG=${TAG#v}
+          git -c submodule.recurse=false fetch origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" > /dev/null; then
             echo "ERROR: 找不到版本 ${{ inputs.version }},请检查 https://github.com/rustdesk/rustdesk/releases"
             exit 1
           fi
+          git -c submodule.recurse=false checkout "${TAG}"
+          git -c submodule.recurse=false submodule update --init --recursive
 
       - name: Detect version
         run: |
@@ -275,15 +275,15 @@ jobs:
       - name: Checkout requested release version
         if: inputs.version != ''
         run: |
-          git fetch --tags --force
-          if git rev-parse -q --verify "refs/tags/${{ inputs.version }}" > /dev/null; then
-            git checkout "${{ inputs.version }}"
-          elif git rev-parse -q --verify "refs/tags/v${{ inputs.version }}" > /dev/null; then
-            git checkout "v${{ inputs.version }}"
-          else
+          TAG="${{ inputs.version }}"
+          TAG=${TAG#v}
+          git -c submodule.recurse=false fetch origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" > /dev/null; then
             echo "ERROR: 找不到版本 ${{ inputs.version }},请检查 https://github.com/rustdesk/rustdesk/releases"
             exit 1
           fi
+          git -c submodule.recurse=false checkout "${TAG}"
+          git -c submodule.recurse=false submodule update --init --recursive
 
       - name: Detect version
         run: |
