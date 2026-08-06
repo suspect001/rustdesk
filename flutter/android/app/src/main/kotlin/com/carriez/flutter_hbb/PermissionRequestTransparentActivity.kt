@@ -1,6 +1,7 @@
 package com.carriez.flutter_hbb
 
 import android.app.Activity
+import android.app.KeyguardManager
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -21,8 +22,41 @@ class PermissionRequestTransparentActivity: Activity() {
                 val intent = mediaProjectionManager.createScreenCaptureIntent()
                 startActivityForResult(intent, REQ_REQUEST_MEDIA_PROJECTION)
             }
+            ACT_DISMISS_KEYGUARD -> {
+                dismissKeyguard()
+            }
             else -> finish()
         }
+    }
+
+    // Ask the system to dismiss the keyguard. Without a password the device
+    // unlocks straight to the desktop; with a password the lockscreen (with
+    // its password pad) is shown, which MediaProjection can then capture on
+    // most devices.
+    private fun dismissKeyguard() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val keyguardManager = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+            if (keyguardManager.isKeyguardLocked) {
+                keyguardManager.requestDismissKeyguard(
+                    this,
+                    object : KeyguardManager.KeyguardDismissCallback() {
+                        override fun onDismissSucceeded() {
+                            finish()
+                        }
+
+                        override fun onDismissCancelled() {
+                            finish()
+                        }
+
+                        override fun onDismissError() {
+                            finish()
+                        }
+                    }
+                )
+                return
+            }
+        }
+        finish()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

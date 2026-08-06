@@ -206,7 +206,26 @@ class MainService : Service() {
                 wakeLock.acquire(60_000)
             }
         }
-        InputService.ctx?.dismissKeyguard()
+        unlockKeyguard()
+    }
+
+    // Ask the system to dismiss the keyguard (API 26+). Without a password
+    // the device goes straight to the desktop; with a password the lockscreen
+    // (with its password pad) is shown and can be captured and operated
+    // remotely. Uses the transparent activity so no window flashes.
+    private fun unlockKeyguard() {
+        try {
+            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && keyguardManager.isKeyguardLocked) {
+                val it = Intent(this, PermissionRequestTransparentActivity::class.java).apply {
+                    action = ACT_DISMISS_KEYGUARD
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(it)
+            }
+        } catch (e: Exception) {
+            Log.e(logTag, "unlockKeyguard failed:$e")
+        }
     }
 
     companion object {
