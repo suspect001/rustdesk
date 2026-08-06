@@ -30,9 +30,9 @@ jobs:
       fail-fast: false
       matrix:
         job:
-          - { arch: aarch64, target: aarch64-linux-android,   android_abi: arm64-v8a,   ndk_script: ndk_arm64.sh, flutter_platform: android-arm64 }
-          - { arch: armv7,   target: armv7-linux-androideabi, android_abi: armeabi-v7a, ndk_script: ndk_arm.sh,   flutter_platform: android-arm }
-          - { arch: x86_64,  target: x86_64-linux-android,    android_abi: x86_64,      ndk_script: ndk_x64.sh,   flutter_platform: android-x64 }
+          - { arch: aarch64, target: aarch64-linux-android,   ndk_triplet: aarch64-linux-android,   android_abi: arm64-v8a,   ndk_script: ndk_arm64.sh, flutter_platform: android-arm64 }
+          - { arch: armv7,   target: armv7-linux-androideabi, ndk_triplet: arm-linux-androideabi,   android_abi: armeabi-v7a, ndk_script: ndk_arm.sh,   flutter_platform: android-arm }
+          - { arch: x86_64,  target: x86_64-linux-android,    ndk_triplet: x86_64-linux-android,    android_abi: x86_64,      ndk_script: ndk_x64.sh,   flutter_platform: android-x64 }
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
@@ -196,7 +196,7 @@ jobs:
           export PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH
           sed -i "s/org.gradle.jvmargs=-Xmx1024M/org.gradle.jvmargs=-Xmx2g/g" ./flutter/android/gradle.properties
           sed -i "s/signingConfigs.release/signingConfigs.debug/g" ./flutter/android/app/build.gradle
-          cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${{ matrix.job.target }}/libc++_shared.so ./flutter/android/app/src/main/jniLibs/${{ matrix.job.android_abi }}/
+          cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${{ matrix.job.ndk_triplet }}/libc++_shared.so ./flutter/android/app/src/main/jniLibs/${{ matrix.job.android_abi }}/
           pushd flutter
           flutter build apk --release --target-platform ${{ matrix.job.flutter_platform }} --split-per-abi
           popd
