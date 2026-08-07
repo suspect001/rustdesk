@@ -631,6 +631,8 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
           Text(
               '* ${translate('Type the lockscreen password automatically when a remote session connects (requires accessibility service)')}',
               style: Theme.of(context).textTheme.bodySmall),
+          Text('* ${translate('Only numeric PIN lockscreen is supported')}',
+              style: Theme.of(context).textTheme.bodySmall),
         ]),
         onPressed: (context) async {
           String current = '';

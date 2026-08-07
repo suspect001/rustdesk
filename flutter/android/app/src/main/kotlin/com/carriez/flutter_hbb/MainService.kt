@@ -207,6 +207,7 @@ class MainService : Service() {
 
     private val powerManager: PowerManager by lazy { applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager }
     private val wakeLock: PowerManager.WakeLock by lazy { powerManager.newWakeLock(PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "rustdesk:wakelock")}
+    private val unlockInProgress = java.util.concurrent.atomic.AtomicBoolean(false)
 
     // Wake up the screen and dismiss keyguard when a session starts, so that
     // MediaProjection starts producing frames even if the device was locked
@@ -227,6 +228,13 @@ class MainService : Service() {
     // (with its password pad) is shown and can be captured and operated
     // remotely. Uses the transparent activity so no window flashes.
     private fun unlockKeyguard() {
+        // Guard against concurrent unlock flows (wakeAndUnlock is called both
+        // from startCapture and add_connection): two typing sequences running
+        // in parallel would enter the pin twice and lock the device out.
+        if (!unlockInProgress.compareAndSet(false, true)) {
+            Log.d(logTag, "unlockKeyguard already in progress, skip")
+            return
+        }
         try {
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && keyguardManager.isKeyguardLocked) {
@@ -250,6 +258,12 @@ class MainService : Service() {
             }
         } catch (e: Exception) {
             Log.e(logTag, "unlockKeyguard failed:$e")
+        } finally {
+            // Reset shortly after so a later lock (e.g. user re-locks during
+            // the session) can be handled again.
+            Handler(Looper.getMainLooper()).postDelayed({
+                unlockInProgress.set(false)
+            }, 8000)
         }
     }
 

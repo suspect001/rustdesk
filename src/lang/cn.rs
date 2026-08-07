@@ -306,6 +306,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Lockscreen auto unlock password", "锁屏自动解锁密码"),
         ("Type the lockscreen password automatically when a remote session connects (requires accessibility service)", "远程连接时自动输入锁屏密码(需要开启无障碍服务)"),
         ("Leave empty to disable", "留空则关闭此功能"),
+        ("Only numeric PIN lockscreen is supported", "仅支持数字 PIN 锁屏密码"),
         ("Start the screen sharing service on boot, requires special permissions", "开机自动启动屏幕共享服务，此功能需要一些特殊权限。"),
         ("Connection not allowed", "对方不允许连接"),
         ("Legacy mode", "传统模式"),

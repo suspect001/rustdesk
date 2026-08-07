@@ -284,11 +284,17 @@ class MainActivity : FlutterActivity() {
                 }
                 SET_LOCKSCREEN_PIN -> {
                     if (call.arguments is String) {
-                        val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
-                        val edit = prefs.edit()
-                        edit.putString(KEY_LOCKSCREEN_PIN, call.arguments as String)
-                        edit.apply()
-                        result.success(true)
+                        val pin = call.arguments as String
+                        if (pin.isNotEmpty() && !pin.matches(Regex("^\\d{4,16}$"))) {
+                            Log.e(logTag, "invalid lockscreen pin format")
+                            result.success(false)
+                        } else {
+                            val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
+                            val edit = prefs.edit()
+                            edit.putString(KEY_LOCKSCREEN_PIN, pin)
+                            edit.apply()
+                            result.success(true)
+                        }
                     } else {
                         result.success(false)
                     }

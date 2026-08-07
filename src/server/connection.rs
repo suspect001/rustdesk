@@ -3665,10 +3665,14 @@ impl Connection {
                             // Controlled side: intercept the auto-unlock
                             // command from the controller and unlock
                             // (lockscreen / app lock) via the service.
+                            // Only for full remote-control connections, so a
+                            // file-transfer or view-only peer cannot unlock.
                             #[cfg(target_os = "android")]
-                            scrap::android::call_main_service_set_by_name(
-                                "auto_unlock", None, None,
-                            );
+                            if self.authed_conn_type() == Some(AuthConnType::Remote) {
+                                scrap::android::call_main_service_set_by_name(
+                                    "auto_unlock", None, None,
+                                );
+                            }
                         } else {
                             self.send_to_cm(ipc::Data::ChatMessage { text: c.text });
                             self.chat_unanswered = true;

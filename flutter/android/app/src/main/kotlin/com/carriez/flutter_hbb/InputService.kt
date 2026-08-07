@@ -68,6 +68,10 @@ class InputService : AccessibilityService() {
         var ctx: InputService? = null
         val isOpen: Boolean
             get() = ctx != null
+        // Serialize pin typing: only one typing sequence may run at a time,
+        // otherwise two overlapping sequences would enter the pin twice and
+        // trigger the lockout.
+        private val tapLock = Any()
     }
 
     private fun notifyInputState() {
@@ -119,6 +123,15 @@ class InputService : AccessibilityService() {
                 Thread.sleep(1500)
                 Log.d(logTag, "autoUnlockWithPin: typing ${pin.length} digits")
                 tapPinDigits(pin)
+                // verify the result; never retry (a wrong pin would lock the
+                // device out)
+                Thread.sleep(1500)
+                val km = getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+                if (km.isKeyguardLocked) {
+                    Log.e(logTag, "autoUnlockWithPin: keyguard still locked after typing, giving up")
+                } else {
+                    Log.d(logTag, "autoUnlockWithPin: unlocked")
+                }
             } catch (e: Exception) {
                 Log.e(logTag, "autoUnlockWithPin failed:$e")
             }
@@ -159,7 +172,15 @@ class InputService : AccessibilityService() {
     private fun findPasswordField(): Boolean {
         try {
             val root = rootInActiveWindow ?: return false
-            return containsPasswordField(root)
+            // Only type into app-lock style windows (MIUI security center /
+            // system lock screens), never into arbitrary apps: the configured
+            // pin must not leak into a bank app or password manager.
+            val pkg = root.packageName ?: return false
+            val isLockWindow = pkg == "com.miui.securitycore" ||
+                pkg == "com.miui.securitycenter" ||
+                pkg == "com.android.systemui" ||
+                pkg == "android"
+            return isLockWindow && containsPasswordField(root)
         } catch (e: Exception) {
             return false
         }
@@ -183,35 +204,39 @@ class InputService : AccessibilityService() {
     }
 
     private fun tapPinDigits(pin: String) {
-        val dm = resources.displayMetrics
-        val w = dm.widthPixels
-        val h = dm.heightPixels
-        // typical numeric keypad: width = screen width, height ~ 42% of
-        // screen, sitting at the bottom
-        val padTop = (h * 0.58).toInt()
-        val rowH = ((h - padTop) / 4f).toInt()
-        val colW = (w / 3f).toInt()
+        synchronized(tapLock) {
+            val dm = resources.displayMetrics
+            val w = dm.widthPixels
+            val h = dm.heightPixels
+            // typical numeric keypad: width = screen width, height ~ 35% of
+            // screen, sitting at the bottom; keep the bottom 5% free so the
+            // last row (0 key) does not land on the gesture-navigation bar
+            val padTop = (h * 0.60).toInt()
+            val padBottom = (h * 0.95).toInt()
+            val rowH = ((padBottom - padTop) / 4f).toInt()
+            val colW = (w / 3f).toInt()
 
-        fun digitPos(d: Char): Pair<Int, Int> {
-            if (d == '0') {
-                return Pair(3, 1)
+            fun digitPos(d: Char): Pair<Int, Int> {
+                if (d == '0') {
+                    return Pair(3, 1)
+                }
+                val n = d - '1'
+                return Pair(n / 3, n % 3)
             }
-            val n = d - '1'
-            return Pair(n / 3, n % 3)
-        }
 
-        for (c in pin) {
-            val (row, col) = digitPos(c)
-            val x = (colW * (col + 0.5f)).toInt()
-            val y = (padTop + rowH * (row + 0.5f)).toInt()
-            val path = Path()
-            path.moveTo(x.toFloat(), y.toFloat())
-            val stroke = GestureDescription.StrokeDescription(path, 0, 60)
-            val builder = GestureDescription.Builder()
-            builder.addStroke(stroke)
-            Log.d(logTag, "tapPinDigits digit $c at ($x,$y)")
-            dispatchGesture(builder.build(), null, null)
-            Thread.sleep(180)
+            for (c in pin) {
+                val (row, col) = digitPos(c)
+                val x = (colW * (col + 0.5f)).toInt()
+                val y = (padTop + rowH * (row + 0.5f)).toInt()
+                val path = Path()
+                path.moveTo(x.toFloat(), y.toFloat())
+                val stroke = GestureDescription.StrokeDescription(path, 0, 60)
+                val builder = GestureDescription.Builder()
+                builder.addStroke(stroke)
+                Log.d(logTag, "tapPinDigits digit $c at ($x,$y)")
+                dispatchGesture(builder.build(), null, null)
+                Thread.sleep(180)
+            }
         }
     }
 
