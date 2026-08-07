@@ -372,17 +372,17 @@ class MainService : Service() {
         super.onStartCommand(intent, flags, startId)
         // intent is null when the system restarts the service after killing
         // it (START_STICKY): re-request media projection in that case too.
-        if (intent == null || intent.action == ACT_INIT_MEDIA_PROJECTION_AND_SERVICE) {
+        if (intent == null || intent?.action == ACT_INIT_MEDIA_PROJECTION_AND_SERVICE) {
             createForegroundNotification()
 
-            if (intent == null || intent.getBooleanExtra(EXT_INIT_FROM_BOOT, false)) {
+            if (intent == null || intent?.getBooleanExtra(EXT_INIT_FROM_BOOT, false) == true) {
                 FFI.startService()
             }
             Log.d(logTag, "service starting: ${startId}:${Thread.currentThread()}")
             val mediaProjectionManager =
                 getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
-            intent.getParcelableExtra<Intent>(EXT_MEDIA_PROJECTION_RES_INTENT)?.let {
+            intent?.getParcelableExtra<Intent>(EXT_MEDIA_PROJECTION_RES_INTENT)?.let {
                 mediaProjection =
                     mediaProjectionManager.getMediaProjection(Activity.RESULT_OK, it)
                 checkMediaPermission()
