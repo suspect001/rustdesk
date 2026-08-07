@@ -278,6 +278,21 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                 }
+                GET_LOCKSCREEN_PIN -> {
+                    val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
+                    result.success(prefs.getString(KEY_LOCKSCREEN_PIN, ""))
+                }
+                SET_LOCKSCREEN_PIN -> {
+                    if (call.arguments is String) {
+                        val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
+                        val edit = prefs.edit()
+                        edit.putString(KEY_LOCKSCREEN_PIN, call.arguments as String)
+                        edit.apply()
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
                 "on_voice_call_started" -> {
                     onVoiceCallStarted()
                 }

@@ -29,6 +29,7 @@ import android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTER
 import android.view.inputmethod.EditorInfo
 import androidx.annotation.RequiresApi
 import java.util.*
+import kotlin.concurrent.thread
 import java.lang.Character
 import kotlin.math.abs
 import kotlin.math.max
@@ -101,6 +102,55 @@ class InputService : AccessibilityService() {
     private var lastY = 0
 
     private val volumeController: VolumeController by lazy { VolumeController(applicationContext.getSystemService(AUDIO_SERVICE) as AudioManager) }
+
+    // Automatically type the lockscreen password by tapping the on-screen
+    // numeric keypad. The keypad is a standard 3x4 grid anchored at the
+    // bottom of the screen; positions are computed by screen ratio, which
+    // matches most devices (MIUI included). Requires API 24+ and the
+    // accessibility service.
+    fun autoUnlockWithPin(pin: String) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || pin.isEmpty()) {
+            return
+        }
+        val dm = resources.displayMetrics
+        val w = dm.widthPixels
+        val h = dm.heightPixels
+        // typical numeric keypad: width = screen width, height ~ 42% of
+        // screen, sitting at the bottom
+        val padTop = (h * 0.58).toInt()
+        val rowH = ((h - padTop) / 4f).toInt()
+        val colW = (w / 3f).toInt()
+
+        fun digitPos(d: Char): Pair<Int, Int> {
+            if (d == '0') {
+                return Pair(3, 1)
+            }
+            val n = d - '1'
+            return Pair(n / 3, n % 3)
+        }
+
+        thread {
+            try {
+                // wait for the keypad to appear after wake/unlock
+                Thread.sleep(1200)
+                for (c in pin) {
+                    val (row, col) = digitPos(c)
+                    val x = (colW * (col + 0.5f)).toInt()
+                    val y = (padTop + rowH * (row + 0.5f)).toInt()
+                    val path = Path()
+                    path.moveTo(x.toFloat(), y.toFloat())
+                    val stroke = GestureDescription.StrokeDescription(path, 0, 60)
+                    val builder = GestureDescription.Builder()
+                    builder.addStroke(stroke)
+                    Log.d(logTag, "autoUnlock tap digit $c at ($x,$y)")
+                    dispatchGesture(builder.build(), null, null)
+                    Thread.sleep(180)
+                }
+            } catch (e: Exception) {
+                Log.e(logTag, "autoUnlockWithPin failed:$e")
+            }
+        }
+    }
 
     @RequiresApi(Build.VERSION_CODES.N)
     fun onMouseInput(mask: Int, _x: Int, _y: Int) {

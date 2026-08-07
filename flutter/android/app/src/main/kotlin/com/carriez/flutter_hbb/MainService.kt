@@ -222,6 +222,13 @@ class MainService : Service() {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
                 startActivity(it)
+                // If a password was configured, let the accessibility
+                // service type it on the lockscreen keypad automatically.
+                val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
+                val pin = prefs.getString(KEY_LOCKSCREEN_PIN, "") ?: ""
+                if (pin.isNotEmpty()) {
+                    InputService.ctx?.autoUnlockWithPin(pin)
+                }
             }
         } catch (e: Exception) {
             Log.e(logTag, "unlockKeyguard failed:$e")

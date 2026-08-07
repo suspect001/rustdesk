@@ -625,6 +625,44 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
           gFFI.invokeMethod(AndroidChannel.kSetStartOnBootOpt, toValue);
         }));
 
+    enhancementsTiles.add(SettingsTile(
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(translate('Lockscreen auto unlock password')),
+          Text(
+              '* ${translate('Type the lockscreen password automatically when a remote session connects (requires accessibility service)')}',
+              style: Theme.of(context).textTheme.bodySmall),
+        ]),
+        onPressed: (context) async {
+          var current =
+              await gFFI.invokeMethod(AndroidChannel.kGetLockscreenPin) ?? '';
+          final controller = TextEditingController(text: current);
+          final res = await gFFI.dialogManager.show<String>((setState, close,
+                  context) =>
+              CustomAlertDialog(
+                title: Text(translate('Lockscreen auto unlock password')),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      obscureText: true,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                          hintText: translate('Leave empty to disable')),
+                    ),
+                  ],
+                ),
+                actions: [
+                  dialogButton("Cancel", onPressed: () => close(), isOutline: true),
+                  dialogButton("OK", onPressed: () => close(controller.text)),
+                ],
+              ));
+          if (res != null) {
+            await gFFI
+                .invokeMethod(AndroidChannel.kSetLockscreenPin, res);
+          }
+        }));
+
     if (!bind.isCustomClient()) {
       enhancementsTiles.add(
         SettingsTile.switchTile(
