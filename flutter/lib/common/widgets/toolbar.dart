@@ -543,7 +543,10 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
     v.add(
       TTextMenu(
           child: Text(translate('Auto unlock device')),
-          onPressed: () => bind.sessionAutoUnlock(sessionId: sessionId)),
+          onPressed: () {
+            bind.sessionAutoUnlock(sessionId: sessionId);
+            showToast(translate('Unlock command sent'));
+          }),
     );
   }
   // insertLock

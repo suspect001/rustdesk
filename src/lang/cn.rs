@@ -310,6 +310,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("App lock auto unlock password", "应用锁自动解锁密码"),
         ("Type the app lock password automatically when the controller sends the unlock command (requires accessibility service)", "控制端发送解锁指令时自动输入应用锁密码(需要开启无障碍服务)"),
         ("Only numeric PIN app lock is supported", "仅支持数字 PIN 应用锁"),
+        ("Unlock command sent", "解锁指令已发送"),
         ("Start the screen sharing service on boot, requires special permissions", "开机自动启动屏幕共享服务，此功能需要一些特殊权限。"),
         ("Connection not allowed", "对方不允许连接"),
         ("Legacy mode", "传统模式"),

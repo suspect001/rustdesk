@@ -178,12 +178,16 @@ class MainService : Service() {
                 stopCapture()
             }
             "auto_unlock" -> {
-                // Triggered by the controlling side: wake the screen and
-                // unlock the keyguard (lockscreen pin is handled by the
-                // transparent activity), then type the separately configured
-                // app lock pin if an app-lock password screen is showing.
+                // Triggered by the controlling side: wake the screen, unlock
+                // the keyguard (lockscreen pin), and type the separately
+                // configured app lock pin if an app-lock screen is showing.
                 Log.d(logTag, "from rust:auto_unlock")
-                wakeAndUnlock()
+                if (!powerManager.isInteractive) {
+                    if (!wakeLock.isHeld) {
+                        wakeLock.acquire(60_000)
+                    }
+                }
+                unlockKeyguardOnCommand()
                 val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
                 val appLockPin = prefs.getString(KEY_APPLOCK_PIN, "") ?: ""
                 if (appLockPin.isNotEmpty()) {
@@ -196,6 +200,13 @@ class MainService : Service() {
                         )
                     }
                     InputService.ctx?.autoUnlockAppLock(appLockPin)
+                } else {
+                    sendGuideNotification(
+                        this,
+                        "请在设置中配置应用锁自动解锁密码,或直接控制解锁后的界面",
+                        null,
+                        notifyId = 2030
+                    )
                 }
             }
             "half_scale" -> {
@@ -245,34 +256,47 @@ class MainService : Service() {
             return
         }
         try {
-            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && keyguardManager.isKeyguardLocked) {
-                // Remind the user if accessibility (needed to type the pin
-                // automatically) is not enabled.
-                if (!InputService.isOpen) {
-                    sendGuideNotification(
-                        this,
-                        "请开启无障碍服务,否则无法自动输入锁屏密码",
-                        Settings.ACTION_ACCESSIBILITY_SETTINGS
-                    )
-                }
-                // The transparent activity shows the lockscreen and (if a pin
-                // is configured) triggers the auto-typing once the keypad is
-                // actually on screen.
-                val it = Intent(this, PermissionRequestTransparentActivity::class.java).apply {
-                    action = ACT_DISMISS_KEYGUARD
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                startActivity(it)
-            }
-        } catch (e: Exception) {
-            Log.e(logTag, "unlockKeyguard failed:$e")
+            doUnlockKeyguard()
         } finally {
             // Reset shortly after so a later lock (e.g. user re-locks during
             // the session) can be handled again.
             Handler(Looper.getMainLooper()).postDelayed({
                 unlockInProgress.set(false)
             }, 8000)
+        }
+    }
+
+    // Direct unlock requested by the controller's auto-unlock command: never
+    // gated by unlockInProgress, because the user explicitly asked for it.
+    private fun unlockKeyguardOnCommand() {
+        try {
+            doUnlockKeyguard()
+        } catch (e: Exception) {
+            Log.e(logTag, "unlockKeyguardOnCommand failed:$e")
+        }
+    }
+
+    private fun doUnlockKeyguard() {
+        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && keyguardManager.isKeyguardLocked) {
+            // Remind the user if accessibility (needed to type the pin
+            // automatically) is not enabled.
+            if (!InputService.isOpen) {
+                sendGuideNotification(
+                    this,
+                    "请开启无障碍服务,否则无法自动输入锁屏密码",
+                    Settings.ACTION_ACCESSIBILITY_SETTINGS,
+                    notifyId = 2028
+                )
+            }
+            // The transparent activity shows the lockscreen and (if a pin
+            // is configured) triggers the auto-typing once the keypad is
+            // actually on screen.
+            val it = Intent(this, PermissionRequestTransparentActivity::class.java).apply {
+                action = ACT_DISMISS_KEYGUARD
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            startActivity(it)
         }
     }
 

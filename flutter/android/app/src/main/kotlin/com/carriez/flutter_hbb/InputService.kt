@@ -130,6 +130,12 @@ class InputService : AccessibilityService() {
                 val km = getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
                 if (km.isKeyguardLocked) {
                     Log.e(logTag, "autoUnlockWithPin: keyguard still locked after typing, giving up")
+                    sendGuideNotification(
+                        applicationContext,
+                        "自动输入锁屏密码后仍未解锁,请检查密码或锁屏类型",
+                        null,
+                        notifyId = 2032
+                    )
                 } else {
                     Log.d(logTag, "autoUnlockWithPin: unlocked")
                 }
@@ -165,11 +171,23 @@ class InputService : AccessibilityService() {
                 }
                 if (!found) {
                     Log.d(logTag, "autoUnlockAppLock: no app lock password field found")
+                    sendGuideNotification(
+                        applicationContext,
+                        "未检测到应用锁界面,未输入密码",
+                        null,
+                        notifyId = 2031
+                    )
                     return@thread
                 }
                 Thread.sleep(600)
                 Log.d(logTag, "autoUnlockAppLock: typing ${pin.length} digits")
                 tapPinDigits(pin)
+                sendGuideNotification(
+                    applicationContext,
+                    "已自动输入应用锁密码",
+                    null,
+                    notifyId = 2031
+                )
             } catch (e: Exception) {
                 Log.e(logTag, "autoUnlockAppLock failed:$e")
             }
@@ -213,6 +231,12 @@ class InputService : AccessibilityService() {
 
     private fun tapPinDigits(pin: String) {
         synchronized(tapLock) {
+            // Prefer real key positions from the accessibility tree; fall
+            // back to the ratio-based layout when the tree is not available
+            // (e.g. the system lockscreen hides its nodes).
+            val keys = findDigitKeyCoords()
+            Log.d(logTag, "tapPinDigits: found ${keys.size} digit keys from accessibility tree")
+
             val dm = resources.displayMetrics
             val w = dm.widthPixels
             val h = dm.heightPixels
@@ -232,10 +256,14 @@ class InputService : AccessibilityService() {
                 return Pair(n / 3, n % 3)
             }
 
+            fun posFor(d: Char): Pair<Int, Int> {
+                keys[d]?.let { return Pair(it.x, it.y) }
+                val (row, col) = digitPos(d)
+                return Pair((colW * (col + 0.5f)).toInt(), (padTop + rowH * (row + 0.5f)).toInt())
+            }
+
             for (c in pin) {
-                val (row, col) = digitPos(c)
-                val x = (colW * (col + 0.5f)).toInt()
-                val y = (padTop + rowH * (row + 0.5f)).toInt()
+                val (x, y) = posFor(c)
                 val path = Path()
                 path.moveTo(x.toFloat(), y.toFloat())
                 val stroke = GestureDescription.StrokeDescription(path, 0, 60)
@@ -244,6 +272,41 @@ class InputService : AccessibilityService() {
                 Log.d(logTag, "tapPinDigits digit $c at ($x,$y)")
                 dispatchGesture(builder.build(), null, null)
                 Thread.sleep(180)
+            }
+        }
+    }
+
+    // Collect the on-screen position of every numeric key from the
+    // accessibility tree (the keypad buttons expose their digit as text or
+    // contentDescription). Empty map when the tree is unavailable.
+    private fun findDigitKeyCoords(): Map<Char, android.graphics.Point> {
+        val result = HashMap<Char, android.graphics.Point>()
+        try {
+            val root = rootInActiveWindow ?: return result
+            collectDigitKeys(root, result)
+            if (Build.VERSION.SDK_INT < 33) {
+                root.recycle()
+            }
+        } catch (e: Exception) {
+            Log.e(logTag, "findDigitKeyCoords failed:$e")
+        }
+        return result
+    }
+
+    private fun collectDigitKeys(node: AccessibilityNodeInfo, map: MutableMap<Char, android.graphics.Point>) {
+        val label = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
+        if (label.length == 1 && label[0] in '0'..'9') {
+            val rect = Rect()
+            node.getBoundsInScreen(rect)
+            if (rect.width() > 0 && rect.height() > 0) {
+                map[label[0]] = android.graphics.Point(rect.centerX(), rect.centerY())
+            }
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            collectDigitKeys(child, map)
+            if (Build.VERSION.SDK_INT < 33) {
+                child.recycle()
             }
         }
     }
