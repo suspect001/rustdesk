@@ -112,6 +112,77 @@ class InputService : AccessibilityService() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || pin.isEmpty()) {
             return
         }
+        thread {
+            try {
+                // wait for the screen to wake up and the lockscreen keypad to
+                // appear before tapping
+                Thread.sleep(1500)
+                Log.d(logTag, "autoUnlockWithPin: typing ${pin.length} digits")
+                tapPinDigits(pin)
+            } catch (e: Exception) {
+                Log.e(logTag, "autoUnlockWithPin failed:$e")
+            }
+        }
+    }
+
+    // Wait for an app-lock password screen (detected via an accessibility
+    // password field) and type the configured pin into it. Used after the
+    // keyguard has been unlocked, when the currently open app is protected
+    // by an app lock.
+    fun autoUnlockAppLock(pin: String) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || pin.isEmpty()) {
+            return
+        }
+        thread {
+            try {
+                var found = false
+                for (i in 0 until 24) {
+                    Thread.sleep(500)
+                    if (findPasswordField()) {
+                        found = true
+                        break
+                    }
+                }
+                if (!found) {
+                    Log.d(logTag, "autoUnlockAppLock: no password field found")
+                    return@thread
+                }
+                Thread.sleep(600)
+                Log.d(logTag, "autoUnlockAppLock: typing ${pin.length} digits")
+                tapPinDigits(pin)
+            } catch (e: Exception) {
+                Log.e(logTag, "autoUnlockAppLock failed:$e")
+            }
+        }
+    }
+
+    private fun findPasswordField(): Boolean {
+        try {
+            val root = rootInActiveWindow ?: return false
+            return containsPasswordField(root)
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    private fun containsPasswordField(node: AccessibilityNodeInfo): Boolean {
+        if (node.isPassword) {
+            return true
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val found = containsPasswordField(child)
+            if (Build.VERSION.SDK_INT < 33) {
+                child.recycle()
+            }
+            if (found) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun tapPinDigits(pin: String) {
         val dm = resources.displayMetrics
         val w = dm.widthPixels
         val h = dm.heightPixels
@@ -129,28 +200,18 @@ class InputService : AccessibilityService() {
             return Pair(n / 3, n % 3)
         }
 
-        thread {
-            try {
-                // wait for the screen to wake up and the lockscreen keypad to
-                // appear before tapping
-                Thread.sleep(1500)
-                Log.d(logTag, "autoUnlockWithPin: typing ${pin.length} digits")
-                for (c in pin) {
-                    val (row, col) = digitPos(c)
-                    val x = (colW * (col + 0.5f)).toInt()
-                    val y = (padTop + rowH * (row + 0.5f)).toInt()
-                    val path = Path()
-                    path.moveTo(x.toFloat(), y.toFloat())
-                    val stroke = GestureDescription.StrokeDescription(path, 0, 60)
-                    val builder = GestureDescription.Builder()
-                    builder.addStroke(stroke)
-                    Log.d(logTag, "autoUnlock tap digit $c at ($x,$y)")
-                    dispatchGesture(builder.build(), null, null)
-                    Thread.sleep(180)
-                }
-            } catch (e: Exception) {
-                Log.e(logTag, "autoUnlockWithPin failed:$e")
-            }
+        for (c in pin) {
+            val (row, col) = digitPos(c)
+            val x = (colW * (col + 0.5f)).toInt()
+            val y = (padTop + rowH * (row + 0.5f)).toInt()
+            val path = Path()
+            path.moveTo(x.toFloat(), y.toFloat())
+            val stroke = GestureDescription.StrokeDescription(path, 0, 60)
+            val builder = GestureDescription.Builder()
+            builder.addStroke(stroke)
+            Log.d(logTag, "tapPinDigits digit $c at ($x,$y)")
+            dispatchGesture(builder.build(), null, null)
+            Thread.sleep(180)
         }
     }
 

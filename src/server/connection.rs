@@ -1024,6 +1024,12 @@ impl Connection {
                                     conn.on_close("stop service", false).await;
                                     break;
                                 }
+                                #[cfg(target_os = "android")]
+                                Some(misc::Union::AutoUnlock(_)) => {
+                                    scrap::android::call_main_service_set_by_name(
+                                        "auto_unlock", None, None,
+                                    );
+                                }
                                 _ => {},
                             }
                         }

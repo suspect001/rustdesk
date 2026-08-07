@@ -537,6 +537,15 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
               showRestartRemoteDevice(pi, id, sessionId, ffi.dialogManager)),
     );
   }
+  // autoUnlock: ask the Android controlled device to unlock itself
+  // (lockscreen and/or app lock) using the pin configured on that device.
+  if (isDefaultConn && pi.platform == kPeerPlatformAndroid) {
+    v.add(
+      TTextMenu(
+          child: Text(translate('Auto unlock device')),
+          onPressed: () => bind.sessionAutoUnlock(sessionId: sessionId)),
+    );
+  }
   // insertLock
   if (isDefaultConn && !ffiModel.viewOnly && ffi.ffiModel.keyboard) {
     v.add(

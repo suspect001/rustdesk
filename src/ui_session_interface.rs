@@ -569,6 +569,16 @@ impl<T: InvokeUiSession> Session<T> {
         self.send(Data::Message(msg));
     }
 
+    // Ask the controlled device to unlock itself (lockscreen and/or app
+    // lock) automatically using the pin configured on the controlled side.
+    pub fn auto_unlock(&self) {
+        let mut misc = Misc::new();
+        misc.set_auto_unlock(true);
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        self.send(Data::Message(msg_out));
+    }
+
     #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     pub fn send_plugin_request(&self, request: PluginRequest) {
