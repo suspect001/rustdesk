@@ -633,29 +633,37 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
               style: Theme.of(context).textTheme.bodySmall),
         ]),
         onPressed: (context) async {
-          var current = (await gFFI.invokeMethod(AndroidChannel.kGetLockscreenPin) ?? '') as String;
+          String current = '';
+          try {
+            current = ((await gFFI
+                    .invokeMethod(AndroidChannel.kGetLockscreenPin)) ??
+                '')
+                .toString();
+          } catch (e) {
+            debugPrint('get_lockscreen_pin failed: $e');
+          }
           final controller = TextEditingController(text: current);
-          final res = await gFFI.dialogManager.show<String>((setState, close,
-                  context) =>
-              CustomAlertDialog(
-                title: Text(translate('Lockscreen auto unlock password')),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      obscureText: true,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                          hintText: translate('Leave empty to disable')),
-                    ),
-                  ],
-                ),
-                actions: [
-                  dialogButton("Cancel", onPressed: () => close(), isOutline: true),
-                  dialogButton("OK", onPressed: () => close(controller.text)),
-                ],
-              ));
+          final res = await showDialog<String>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(translate('Lockscreen auto unlock password')),
+              content: TextField(
+                controller: controller,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                    hintText: translate('Leave empty to disable')),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(translate('Cancel'))),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, controller.text),
+                    child: Text(translate('OK'))),
+              ],
+            ),
+          );
           if (res != null) {
             await gFFI
                 .invokeMethod(AndroidChannel.kSetLockscreenPin, res);
