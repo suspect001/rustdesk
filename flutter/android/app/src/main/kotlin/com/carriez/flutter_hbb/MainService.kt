@@ -27,6 +27,7 @@ import android.media.*
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.*
+import android.provider.Settings
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Surface
@@ -217,18 +218,23 @@ class MainService : Service() {
         try {
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && keyguardManager.isKeyguardLocked) {
+                // Remind the user if accessibility (needed to type the pin
+                // automatically) is not enabled.
+                if (!InputService.isOpen) {
+                    sendGuideNotification(
+                        this,
+                        "请开启无障碍服务,否则无法自动输入锁屏密码",
+                        Settings.ACTION_ACCESSIBILITY_SETTINGS
+                    )
+                }
+                // The transparent activity shows the lockscreen and (if a pin
+                // is configured) triggers the auto-typing once the keypad is
+                // actually on screen.
                 val it = Intent(this, PermissionRequestTransparentActivity::class.java).apply {
                     action = ACT_DISMISS_KEYGUARD
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
                 startActivity(it)
-                // If a password was configured, let the accessibility
-                // service type it on the lockscreen keypad automatically.
-                val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
-                val pin = prefs.getString(KEY_LOCKSCREEN_PIN, "") ?: ""
-                if (pin.isNotEmpty()) {
-                    InputService.ctx?.autoUnlockWithPin(pin)
-                }
             }
         } catch (e: Exception) {
             Log.e(logTag, "unlockKeyguard failed:$e")

@@ -131,8 +131,10 @@ class InputService : AccessibilityService() {
 
         thread {
             try {
-                // wait for the keypad to appear after wake/unlock
-                Thread.sleep(1200)
+                // wait for the screen to wake up and the lockscreen keypad to
+                // appear before tapping
+                Thread.sleep(1500)
+                Log.d(logTag, "autoUnlockWithPin: typing ${pin.length} digits")
                 for (c in pin) {
                     val (row, col) = digitPos(c)
                     val x = (colW * (col + 0.5f)).toInt()

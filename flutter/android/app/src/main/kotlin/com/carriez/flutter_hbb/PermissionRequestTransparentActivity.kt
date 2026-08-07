@@ -3,9 +3,12 @@ package com.carriez.flutter_hbb
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Intent
+import android.content.SharedPreferences
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 
 class PermissionRequestTransparentActivity: Activity() {
@@ -53,10 +56,33 @@ class PermissionRequestTransparentActivity: Activity() {
                         }
                     }
                 )
+                // The keypad is only visible after the lockscreen has been
+                // shown; wait for it, then auto-type the configured pin.
+                scheduleAutoUnlock(2000)
                 return
             }
         }
         finish()
+    }
+
+    // Wait until the lockscreen keypad is on screen, then let the
+    // accessibility service tap in the configured pin.
+    private fun scheduleAutoUnlock(delayMs: Long) {
+        Handler(Looper.getMainLooper()).postDelayed({
+            try {
+                val keyguardManager = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && keyguardManager.isKeyguardLocked) {
+                    val prefs = applicationContext.getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
+                    val pin = prefs.getString(KEY_LOCKSCREEN_PIN, "") ?: ""
+                    if (pin.isNotEmpty()) {
+                        Log.d(logTag, "auto unlock: typing pin, accessibility open=${InputService.isOpen}")
+                        InputService.ctx?.autoUnlockWithPin(pin)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(logTag, "scheduleAutoUnlock failed:$e")
+            }
+        }, delayMs)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
