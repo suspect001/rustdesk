@@ -178,15 +178,16 @@ class MainService : Service() {
                 stopCapture()
             }
             "auto_unlock" -> {
-                // Triggered by the controlling side: wake the screen, unlock
-                // the keyguard, and type the configured pin on the app lock
-                // keypad (if one is showing).
+                // Triggered by the controlling side: wake the screen and
+                // unlock the keyguard (lockscreen pin is handled by the
+                // transparent activity), then type the separately configured
+                // app lock pin if an app-lock password screen is showing.
                 Log.d(logTag, "from rust:auto_unlock")
                 wakeAndUnlock()
                 val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
-                val pin = prefs.getString(KEY_LOCKSCREEN_PIN, "") ?: ""
-                if (pin.isNotEmpty()) {
-                    InputService.ctx?.autoUnlockAppLock(pin)
+                val appLockPin = prefs.getString(KEY_APPLOCK_PIN, "") ?: ""
+                if (appLockPin.isNotEmpty()) {
+                    InputService.ctx?.autoUnlockAppLock(appLockPin)
                 }
             }
             "half_scale" -> {

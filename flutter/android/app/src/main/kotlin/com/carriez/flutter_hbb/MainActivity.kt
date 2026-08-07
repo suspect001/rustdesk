@@ -299,6 +299,27 @@ class MainActivity : FlutterActivity() {
                         result.success(false)
                     }
                 }
+                GET_APPLOCK_PIN -> {
+                    val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
+                    result.success(prefs.getString(KEY_APPLOCK_PIN, ""))
+                }
+                SET_APPLOCK_PIN -> {
+                    if (call.arguments is String) {
+                        val pin = call.arguments as String
+                        if (pin.isNotEmpty() && !pin.matches(Regex("^\\d{4,16}$"))) {
+                            Log.e(logTag, "invalid applock pin format")
+                            result.success(false)
+                        } else {
+                            val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
+                            val edit = prefs.edit()
+                            edit.putString(KEY_APPLOCK_PIN, pin)
+                            edit.apply()
+                            result.success(true)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
                 "on_voice_call_started" -> {
                     onVoiceCallStarted()
                 }

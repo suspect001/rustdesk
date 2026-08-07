@@ -454,6 +454,8 @@ class AndroidChannel {
   static final kSyncAppDirConfigPath = "sync_app_dir";
   static final kGetLockscreenPin = "get_lockscreen_pin";
   static final kSetLockscreenPin = "set_lockscreen_pin";
+  static final kGetApplockPin = "get_applock_pin";
+  static final kSetApplockPin = "set_applock_pin";
 }
 
 /// flutter/packages/flutter/lib/src/services/keyboard_key.dart -> _keyLabels

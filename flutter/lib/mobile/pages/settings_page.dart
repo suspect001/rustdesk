@@ -672,6 +672,52 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
           }
         }));
 
+    enhancementsTiles.add(SettingsTile(
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(translate('App lock auto unlock password')),
+          Text(
+              '* ${translate('Type the app lock password automatically when the controller sends the unlock command (requires accessibility service)')}',
+              style: Theme.of(context).textTheme.bodySmall),
+          Text('* ${translate('Only numeric PIN app lock is supported')}',
+              style: Theme.of(context).textTheme.bodySmall),
+        ]),
+        onPressed: (context) async {
+          String current = '';
+          try {
+            current = ((await gFFI
+                    .invokeMethod(AndroidChannel.kGetApplockPin)) ??
+                '')
+                .toString();
+          } catch (e) {
+            debugPrint('get_applock_pin failed: $e');
+          }
+          final controller = TextEditingController(text: current);
+          final res = await showDialog<String>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(translate('App lock auto unlock password')),
+              content: TextField(
+                controller: controller,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                    hintText: translate('Leave empty to disable')),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(translate('Cancel'))),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, controller.text),
+                    child: Text(translate('OK'))),
+              ],
+            ),
+          );
+          if (res != null) {
+            await gFFI.invokeMethod(AndroidChannel.kSetApplockPin, res);
+          }
+        }));
+
     if (!bind.isCustomClient()) {
       enhancementsTiles.add(
         SettingsTile.switchTile(
