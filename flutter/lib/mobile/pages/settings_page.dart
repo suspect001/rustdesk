@@ -633,8 +633,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
               style: Theme.of(context).textTheme.bodySmall),
         ]),
         onPressed: (context) async {
-          var current =
-              await gFFI.invokeMethod(AndroidChannel.kGetLockscreenPin) ?? '';
+          var current = (await gFFI.invokeMethod(AndroidChannel.kGetLockscreenPin) ?? '') as String;
           final controller = TextEditingController(text: current);
           final res = await gFFI.dialogManager.show<String>((setState, close,
                   context) =>
