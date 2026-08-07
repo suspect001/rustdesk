@@ -571,9 +571,14 @@ impl<T: InvokeUiSession> Session<T> {
 
     // Ask the controlled device to unlock itself (lockscreen and/or app
     // lock) automatically using the pin configured on the controlled side.
+    // Sent as a special chat text so no protocol change is needed; the
+    // controlled side intercepts it silently.
     pub fn auto_unlock(&self) {
         let mut misc = Misc::new();
-        misc.set_auto_unlock(true);
+        misc.set_chat_message(ChatMessage {
+            text: crate::common::AUTO_UNLOCK_CMD.to_owned(),
+            ..Default::default()
+        });
         let mut msg_out = Message::new();
         msg_out.set_misc(misc);
         self.send(Data::Message(msg_out));

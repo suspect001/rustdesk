@@ -60,6 +60,10 @@ pub const PLATFORM_LINUX: &str = "Linux";
 pub const PLATFORM_MACOS: &str = "Mac OS";
 pub const PLATFORM_ANDROID: &str = "Android";
 
+// Special chat text used by the controlling side to ask the Android
+// controlled device to unlock itself (lockscreen and/or app lock).
+pub const AUTO_UNLOCK_CMD: &str = "@@rustdesk_auto_unlock@@";
+
 pub const TIMER_OUT: Duration = Duration::from_secs(1);
 pub const DEFAULT_KEEP_ALIVE: i32 = 60_000;
 

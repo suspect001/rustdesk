@@ -1024,12 +1024,6 @@ impl Connection {
                                     conn.on_close("stop service", false).await;
                                     break;
                                 }
-                                #[cfg(target_os = "android")]
-                                Some(misc::Union::AutoUnlock(_)) => {
-                                    scrap::android::call_main_service_set_by_name(
-                                        "auto_unlock", None, None,
-                                    );
-                                }
                                 _ => {},
                             }
                         }
@@ -3663,9 +3657,23 @@ impl Connection {
                         }
                     }
                     Some(misc::Union::ChatMessage(c)) => {
-                        self.send_to_cm(ipc::Data::ChatMessage { text: c.text });
-                        self.chat_unanswered = true;
-                        self.update_auto_disconnect_timer();
+                        #[cfg(target_os = "android")]
+                        let is_auto_unlock_cmd = c.text == crate::common::AUTO_UNLOCK_CMD;
+                        #[cfg(not(target_os = "android"))]
+                        let is_auto_unlock_cmd = false;
+                        if is_auto_unlock_cmd {
+                            // Controlled side: intercept the auto-unlock
+                            // command from the controller and unlock
+                            // (lockscreen / app lock) via the service.
+                            #[cfg(target_os = "android")]
+                            scrap::android::call_main_service_set_by_name(
+                                "auto_unlock", None, None,
+                            );
+                        } else {
+                            self.send_to_cm(ipc::Data::ChatMessage { text: c.text });
+                            self.chat_unanswered = true;
+                            self.update_auto_disconnect_timer();
+                        }
                     }
                     Some(misc::Union::Option(o)) => {
                         if self.authed_conn_type() == Some(AuthConnType::Remote) {
