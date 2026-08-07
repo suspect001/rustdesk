@@ -187,6 +187,14 @@ class MainService : Service() {
                 val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
                 val appLockPin = prefs.getString(KEY_APPLOCK_PIN, "") ?: ""
                 if (appLockPin.isNotEmpty()) {
+                    if (!InputService.isOpen) {
+                        sendGuideNotification(
+                            this,
+                            "请开启无障碍服务,否则无法自动输入应用锁密码",
+                            Settings.ACTION_ACCESSIBILITY_SETTINGS,
+                            notifyId = 2029
+                        )
+                    }
                     InputService.ctx?.autoUnlockAppLock(appLockPin)
                 }
             }

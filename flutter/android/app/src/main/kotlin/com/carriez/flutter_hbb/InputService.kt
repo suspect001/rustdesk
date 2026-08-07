@@ -65,6 +65,7 @@ const val LONG_TAP_DELAY = 200L
 class InputService : AccessibilityService() {
 
     companion object {
+        @Volatile
         var ctx: InputService? = null
         val isOpen: Boolean
             get() = ctx != null
@@ -151,13 +152,19 @@ class InputService : AccessibilityService() {
                 var found = false
                 for (i in 0 until 24) {
                     Thread.sleep(500)
+                    // Never type the app lock pin while the keyguard is still
+                    // up: the app-lock pin must not reach the lockscreen.
+                    val km = getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+                    if (km.isKeyguardLocked) {
+                        continue
+                    }
                     if (findPasswordField()) {
                         found = true
                         break
                     }
                 }
                 if (!found) {
-                    Log.d(logTag, "autoUnlockAppLock: no password field found")
+                    Log.d(logTag, "autoUnlockAppLock: no app lock password field found")
                     return@thread
                 }
                 Thread.sleep(600)
@@ -172,14 +179,15 @@ class InputService : AccessibilityService() {
     private fun findPasswordField(): Boolean {
         try {
             val root = rootInActiveWindow ?: return false
-            // Only type into app-lock style windows (MIUI security center /
-            // system lock screens), never into arbitrary apps: the configured
-            // pin must not leak into a bank app or password manager.
+            // Only type into MIUI app-lock windows, never into the system
+            // keyguard (com.android.systemui / android) — the keyguard PIN
+            // pad is also an isPassword node, so typing the app lock pin
+            // there would feed a wrong pin into the lockscreen and trigger
+            // the lockout. The keyguard is handled separately by
+            // autoUnlockWithPin.
             val pkg = root.packageName ?: return false
             val isLockWindow = pkg == "com.miui.securitycore" ||
-                pkg == "com.miui.securitycenter" ||
-                pkg == "com.android.systemui" ||
-                pkg == "android"
+                pkg == "com.miui.securitycenter"
             return isLockWindow && containsPasswordField(root)
         } catch (e: Exception) {
             return false

@@ -137,7 +137,13 @@ fun miuiAutoStartIntent(context: Context): Intent? {
 // Post a high-priority notification guiding the user to grant a permission
 // that can only be granted manually (accessibility service, media
 // projection, etc). targetAction == null opens the app itself.
-fun sendGuideNotification(context: Context, text: String, targetAction: String?, targetIntent: Intent? = null) {
+fun sendGuideNotification(
+    context: Context,
+    text: String,
+    targetAction: String?,
+    targetIntent: Intent? = null,
+    notifyId: Int = 2026
+) {
     try {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -154,10 +160,12 @@ fun sendGuideNotification(context: Context, text: String, targetAction: String?,
             Intent(context, MainActivity::class.java)
         }
         clickIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        val pi = PendingIntent.getActivity(
-            context, 0, clickIntent,
+        val piFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val pi = PendingIntent.getActivity(context, 0, clickIntent, piFlags)
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(context, "RustDesk")
         } else {
@@ -170,7 +178,7 @@ fun sendGuideNotification(context: Context, text: String, targetAction: String?,
             .setAutoCancel(true)
             .setPriority(Notification.PRIORITY_MAX)
             .build()
-        nm.notify(2026, notification)
+        nm.notify(notifyId, notification)
     } catch (e: Exception) {
         Log.e("guideNotification", "sendGuideNotification failed:$e")
     }

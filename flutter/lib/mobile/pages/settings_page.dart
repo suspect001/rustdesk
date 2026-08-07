@@ -670,6 +670,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
             await gFFI
                 .invokeMethod(AndroidChannel.kSetLockscreenPin, res);
           }
+          controller.dispose();
         }));
 
     enhancementsTiles.add(SettingsTile(
@@ -716,6 +717,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
           if (res != null) {
             await gFFI.invokeMethod(AndroidChannel.kSetApplockPin, res);
           }
+          controller.dispose();
         }));
 
     if (!bind.isCustomClient()) {

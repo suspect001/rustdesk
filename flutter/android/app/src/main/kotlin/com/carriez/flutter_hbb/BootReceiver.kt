@@ -50,7 +50,8 @@ class BootReceiver : BroadcastReceiver() {
                 sendGuideNotification(
                     context,
                     "请点击开启无障碍服务(远程输入需要)",
-                    Settings.ACTION_ACCESSIBILITY_SETTINGS
+                    Settings.ACTION_ACCESSIBILITY_SETTINGS,
+                    notifyId = 2026
                 )
             }
 
@@ -62,7 +63,8 @@ class BootReceiver : BroadcastReceiver() {
                     context,
                     "小米手机请点击设置自启动与后台无限制,防止被控服务被系统关闭",
                     null,
-                    miuiAutoStartIntent(context)
+                    miuiAutoStartIntent(context),
+                    notifyId = 2027
                 )
             }
         }
