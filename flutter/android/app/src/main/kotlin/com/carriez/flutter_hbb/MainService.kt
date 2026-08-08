@@ -266,20 +266,23 @@ class MainService : Service() {
         }
     }
 
-    // Direct unlock requested by the controller's auto-unlock command. If an
-    // unlock flow from the session start is already running, skip the
-    // keyguard part (a second lockscreen typing sequence would double-enter
-    // the pin and lock the device out); the app-lock part is single-flighted
-    // inside InputService.
+    // Direct unlock requested by the controller's auto-unlock command. Uses
+    // the same CAS guard as the session-start path so that rapid repeated
+    // commands cannot spawn multiple lockscreen typing sequences (a
+    // double-enter of the pin would lock the device out).
     private fun unlockKeyguardOnCommand() {
-        if (unlockInProgress.get()) {
-            Log.d(logTag, "unlockKeyguardOnCommand: unlock flow already in progress, skip keyguard")
+        if (!unlockInProgress.compareAndSet(false, true)) {
+            Log.d(logTag, "unlockKeyguardOnCommand: unlock flow already in progress, skip")
             return
         }
         try {
             doUnlockKeyguard()
         } catch (e: Exception) {
             Log.e(logTag, "unlockKeyguardOnCommand failed:$e")
+        } finally {
+            Handler(Looper.getMainLooper()).postDelayed({
+                unlockInProgress.set(false)
+            }, 8000)
         }
     }
 

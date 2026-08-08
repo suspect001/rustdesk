@@ -200,22 +200,31 @@ class InputService : AccessibilityService() {
                 }
                 Log.d(logTag, "autoUnlockAppLock: typing ${pin.length} digits")
                 tapPinDigits(pin)
-                // Verify the result before claiming success; never retry.
-                Thread.sleep(1500)
-                val km = getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-                if (km.isKeyguardLocked || findPasswordField()) {
-                    Log.e(logTag, "autoUnlockAppLock: still locked after typing")
-                    sendGuideNotification(
-                        applicationContext,
-                        "自动输入应用锁密码后仍未解锁,请检查密码",
-                        null,
-                        notifyId = 2031
-                    )
-                } else {
+                // Poll for the app-lock window to disappear (up to ~3s):
+                // MIUI dismisses it with a transition animation, so a single
+                // immediate check would report a false failure.
+                var unlocked = false
+                for (i in 0 until 12) {
+                    Thread.sleep(250)
+                    val km = getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+                    if (!km.isKeyguardLocked && !findPasswordField()) {
+                        unlocked = true
+                        break
+                    }
+                }
+                if (unlocked) {
                     Log.d(logTag, "autoUnlockAppLock: unlocked")
                     sendGuideNotification(
                         applicationContext,
                         "已自动输入应用锁密码",
+                        null,
+                        notifyId = 2031
+                    )
+                } else {
+                    Log.e(logTag, "autoUnlockAppLock: still locked after typing")
+                    sendGuideNotification(
+                        applicationContext,
+                        "自动输入应用锁密码后仍未解锁,请检查密码",
                         null,
                         notifyId = 2031
                     )
@@ -360,8 +369,9 @@ class InputService : AccessibilityService() {
 
     // Fallback for keypads whose digit buttons carry no accessibility text:
     // find the keypad container (the deepest node with >= 6 clickable
-    // children), sort its clickable children by (y, x) and map them onto the
-    // standard 3x4 grid (1-9 then 0 in the middle of the last row).
+    // children), cluster its clickable children into rows by y, and map the
+    // rows onto the standard 3x4 grid (1-9 then 0 in the middle of the last
+    // row). Only accepted when the geometry matches a 3-column keypad.
     private fun collectKeypadGrid(root: AccessibilityNodeInfo, map: MutableMap<Char, android.graphics.Point>) {
         try {
             val container = findKeypadContainer(root) ?: return
@@ -380,19 +390,53 @@ class InputService : AccessibilityService() {
                 }
             }
             if (points.size < 9) {
+                if (Build.VERSION.SDK_INT < 33 && container !== root) {
+                    container.recycle()
+                }
                 return
             }
-            points.sortWith(Comparator { a, b ->
-                val dy = a.y - b.y
-                if (dy != 0) dy else a.x - b.x
-            })
-            for (i in 0 until minOf(9, points.size)) {
-                map[('1' + i).toChar()] = points[i]
+            // cluster into rows by y proximity (typical key row pitch on
+            // 1080p screens is ~150-200px)
+            val rows = ArrayList<ArrayList<android.graphics.Point>>()
+            for (p in points) {
+                val row = rows.firstOrNull { kotlin.math.abs(it[0].y - p.y) <= 80 }
+                if (row != null) {
+                    row.add(p)
+                } else {
+                    rows.add(arrayListOf(p))
+                }
             }
-            if (points.size >= 11) {
-                map['0'] = points[10]
+            rows.sortBy { it[0].y }
+            for (row in rows) {
+                row.sortBy { it.x }
             }
-            if (Build.VERSION.SDK_INT < 33) {
+            // find 3 consecutive rows each with >= 3 columns for digits 1-9
+            var digitRowStart = -1
+            for (i in 0 until rows.size - 2) {
+                if (rows[i].size >= 3 && rows[i + 1].size >= 3 && rows[i + 2].size >= 3) {
+                    digitRowStart = i
+                    break
+                }
+            }
+            if (digitRowStart < 0) {
+                if (Build.VERSION.SDK_INT < 33 && container !== root) {
+                    container.recycle()
+                }
+                return
+            }
+            for (r in 0 until 3) {
+                for (c in 0 until 3) {
+                    map[('1' + (r * 3 + c)).toChar()] = rows[digitRowStart + r][c]
+                }
+            }
+            // 0 key: middle of the row below the digit rows (if present)
+            if (digitRowStart + 3 < rows.size) {
+                val last = rows[digitRowStart + 3]
+                if (last.size >= 3) {
+                    map['0'] = last[last.size / 2]
+                }
+            }
+            if (Build.VERSION.SDK_INT < 33 && container !== root) {
                 container.recycle()
             }
         } catch (e: Exception) {
