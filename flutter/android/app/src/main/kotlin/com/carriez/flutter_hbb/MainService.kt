@@ -266,9 +266,16 @@ class MainService : Service() {
         }
     }
 
-    // Direct unlock requested by the controller's auto-unlock command: never
-    // gated by unlockInProgress, because the user explicitly asked for it.
+    // Direct unlock requested by the controller's auto-unlock command. If an
+    // unlock flow from the session start is already running, skip the
+    // keyguard part (a second lockscreen typing sequence would double-enter
+    // the pin and lock the device out); the app-lock part is single-flighted
+    // inside InputService.
     private fun unlockKeyguardOnCommand() {
+        if (unlockInProgress.get()) {
+            Log.d(logTag, "unlockKeyguardOnCommand: unlock flow already in progress, skip keyguard")
+            return
+        }
         try {
             doUnlockKeyguard()
         } catch (e: Exception) {

@@ -73,6 +73,9 @@ class InputService : AccessibilityService() {
         // otherwise two overlapping sequences would enter the pin twice and
         // trigger the lockout.
         private val tapLock = Any()
+        // Single-flight for the app-lock typing pipeline so two auto-unlock
+        // commands cannot both type the app lock pin back-to-back.
+        private val appLockUnlockInFlight = java.util.concurrent.atomic.AtomicBoolean(false)
     }
 
     private fun notifyInputState() {
@@ -132,7 +135,7 @@ class InputService : AccessibilityService() {
                     Log.e(logTag, "autoUnlockWithPin: keyguard still locked after typing, giving up")
                     sendGuideNotification(
                         applicationContext,
-                        "自动输入锁屏密码后仍未解锁,请检查密码或锁屏类型",
+                        "自动输入锁屏密码后仍未解锁,请检查密码;部分设备输入正确后需上滑确认",
                         null,
                         notifyId = 2032
                     )
@@ -151,6 +154,10 @@ class InputService : AccessibilityService() {
     // by an app lock.
     fun autoUnlockAppLock(pin: String) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || pin.isEmpty()) {
+            return
+        }
+        if (!appLockUnlockInFlight.compareAndSet(false, true)) {
+            Log.d(logTag, "autoUnlockAppLock already in flight, skip")
             return
         }
         thread {
@@ -180,16 +187,43 @@ class InputService : AccessibilityService() {
                     return@thread
                 }
                 Thread.sleep(600)
+                // Re-verify the app-lock window is still showing before typing
+                // (it may have auto-dismissed in the meantime).
+                if (!findPasswordField()) {
+                    sendGuideNotification(
+                        applicationContext,
+                        "应用锁界面已消失,未输入密码",
+                        null,
+                        notifyId = 2031
+                    )
+                    return@thread
+                }
                 Log.d(logTag, "autoUnlockAppLock: typing ${pin.length} digits")
                 tapPinDigits(pin)
-                sendGuideNotification(
-                    applicationContext,
-                    "已自动输入应用锁密码",
-                    null,
-                    notifyId = 2031
-                )
+                // Verify the result before claiming success; never retry.
+                Thread.sleep(1500)
+                val km = getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+                if (km.isKeyguardLocked || findPasswordField()) {
+                    Log.e(logTag, "autoUnlockAppLock: still locked after typing")
+                    sendGuideNotification(
+                        applicationContext,
+                        "自动输入应用锁密码后仍未解锁,请检查密码",
+                        null,
+                        notifyId = 2031
+                    )
+                } else {
+                    Log.d(logTag, "autoUnlockAppLock: unlocked")
+                    sendGuideNotification(
+                        applicationContext,
+                        "已自动输入应用锁密码",
+                        null,
+                        notifyId = 2031
+                    )
+                }
             } catch (e: Exception) {
                 Log.e(logTag, "autoUnlockAppLock failed:$e")
+            } finally {
+                appLockUnlockInFlight.set(false)
             }
         }
     }
@@ -197,16 +231,24 @@ class InputService : AccessibilityService() {
     private fun findPasswordField(): Boolean {
         try {
             val root = rootInActiveWindow ?: return false
-            // Only type into MIUI app-lock windows, never into the system
-            // keyguard (com.android.systemui / android) — the keyguard PIN
-            // pad is also an isPassword node, so typing the app lock pin
-            // there would feed a wrong pin into the lockscreen and trigger
-            // the lockout. The keyguard is handled separately by
-            // autoUnlockWithPin.
-            val pkg = root.packageName ?: return false
-            val isLockWindow = pkg == "com.miui.securitycore" ||
-                pkg == "com.miui.securitycenter"
-            return isLockWindow && containsPasswordField(root)
+            try {
+                // Only type into MIUI app-lock windows, never into the system
+                // keyguard (com.android.systemui / android) — the keyguard PIN
+                // pad is also an isPassword node, so typing the app lock pin
+                // there would feed a wrong pin into the lockscreen and trigger
+                // the lockout. The keyguard is handled separately by
+                // autoUnlockWithPin.
+                val pkg = root.packageName ?: return false
+                val isLockWindow = pkg == "com.miui.securitycore" ||
+                    pkg == "com.miui.securitycenter" ||
+                    pkg == "com.miui.securityadd"
+                Log.d(logTag, "findPasswordField: active window package=$pkg, match=$isLockWindow")
+                return isLockWindow && containsPasswordField(root)
+            } finally {
+                if (Build.VERSION.SDK_INT < 33) {
+                    root.recycle()
+                }
+            }
         } catch (e: Exception) {
             return false
         }
@@ -284,6 +326,11 @@ class InputService : AccessibilityService() {
         try {
             val root = rootInActiveWindow ?: return result
             collectDigitKeys(root, result)
+            if (result.isEmpty()) {
+                // OEM keypads often expose no text on the digit buttons;
+                // derive the positions from the keypad container grid.
+                collectKeypadGrid(root, result)
+            }
             if (Build.VERSION.SDK_INT < 33) {
                 root.recycle()
             }
@@ -309,6 +356,69 @@ class InputService : AccessibilityService() {
                 child.recycle()
             }
         }
+    }
+
+    // Fallback for keypads whose digit buttons carry no accessibility text:
+    // find the keypad container (the deepest node with >= 6 clickable
+    // children), sort its clickable children by (y, x) and map them onto the
+    // standard 3x4 grid (1-9 then 0 in the middle of the last row).
+    private fun collectKeypadGrid(root: AccessibilityNodeInfo, map: MutableMap<Char, android.graphics.Point>) {
+        try {
+            val container = findKeypadContainer(root) ?: return
+            val points = ArrayList<android.graphics.Point>()
+            for (i in 0 until container.childCount) {
+                val child = container.getChild(i) ?: continue
+                if (child.isClickable) {
+                    val rect = Rect()
+                    child.getBoundsInScreen(rect)
+                    if (rect.width() > 0 && rect.height() > 0) {
+                        points.add(android.graphics.Point(rect.centerX(), rect.centerY()))
+                    }
+                }
+                if (Build.VERSION.SDK_INT < 33) {
+                    child.recycle()
+                }
+            }
+            if (points.size < 9) {
+                return
+            }
+            points.sortWith(Comparator { a, b ->
+                val dy = a.y - b.y
+                if (dy != 0) dy else a.x - b.x
+            })
+            for (i in 0 until minOf(9, points.size)) {
+                map[('1' + i).toChar()] = points[i]
+            }
+            if (points.size >= 11) {
+                map['0'] = points[10]
+            }
+            if (Build.VERSION.SDK_INT < 33) {
+                container.recycle()
+            }
+        } catch (e: Exception) {
+            Log.e(logTag, "collectKeypadGrid failed:$e")
+        }
+    }
+
+    private fun findKeypadContainer(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var clickable = 0
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            if (child.isClickable) {
+                clickable++
+            }
+            val sub = findKeypadContainer(child)
+            if (sub != null) {
+                if (Build.VERSION.SDK_INT < 33 && child != sub) {
+                    child.recycle()
+                }
+                return sub
+            }
+            if (Build.VERSION.SDK_INT < 33) {
+                child.recycle()
+            }
+        }
+        return if (clickable >= 6) node else null
     }
 
     @RequiresApi(Build.VERSION_CODES.N)
