@@ -75,8 +75,18 @@ class PermissionRequestTransparentActivity: Activity() {
                     val prefs = applicationContext.getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
                     val pin = prefs.getString(KEY_LOCKSCREEN_PIN, "") ?: ""
                     if (pin.isNotEmpty()) {
-                        Log.d(logTag, "auto unlock: typing pin, accessibility open=${InputService.isOpen}")
-                        InputService.ctx?.autoUnlockWithPin(pin)
+                        if (InputService.isOpen) {
+                            Log.d(logTag, "auto unlock: typing pin, accessibility open=true")
+                            InputService.ctx?.autoUnlockWithPin(pin)
+                        } else {
+                            Log.e(logTag, "auto unlock: accessibility service is NOT enabled")
+                            sendGuideNotification(
+                                applicationContext,
+                                "无法自动输入锁屏密码:请先开启无障碍服务",
+                                Settings.ACTION_ACCESSIBILITY_SETTINGS,
+                                notifyId = 2034
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {

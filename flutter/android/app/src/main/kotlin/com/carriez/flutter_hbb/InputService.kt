@@ -313,16 +313,43 @@ class InputService : AccessibilityService() {
                 return Pair((colW * (col + 0.5f)).toInt(), (padTop + rowH * (row + 0.5f)).toInt())
             }
 
+            var rejected = false
             for (c in pin) {
                 val (x, y) = posFor(c)
                 val path = Path()
                 path.moveTo(x.toFloat(), y.toFloat())
-                val stroke = GestureDescription.StrokeDescription(path, 0, 60)
+                val stroke = GestureDescription.StrokeDescription(path, 0, 80)
                 val builder = GestureDescription.Builder()
                 builder.addStroke(stroke)
                 Log.d(logTag, "tapPinDigits digit $c at ($x,$y)")
-                dispatchGesture(builder.build(), null, null)
+                val ok = dispatchGesture(
+                    builder.build(),
+                    object : AccessibilityService.GestureResultCallback() {
+                        override fun onCompleted(gestureDescription: GestureDescription?) {
+                            Log.d(logTag, "tapPinDigits digit $c: gesture completed")
+                        }
+
+                        override fun onCancelled(gestureDescription: GestureDescription?) {
+                            Log.e(logTag, "tapPinDigits digit $c: gesture CANCELLED by system")
+                            rejected = true
+                        }
+                    },
+                    null
+                )
+                if (!ok) {
+                    Log.e(logTag, "tapPinDigits digit $c: dispatchGesture returned false (rejected)")
+                    rejected = true
+                    break
+                }
                 Thread.sleep(180)
+            }
+            if (rejected) {
+                sendGuideNotification(
+                    applicationContext,
+                    "系统拒绝了自动点击(无障碍手势被限制),无法自动输入密码",
+                    null,
+                    notifyId = 2033
+                )
             }
         }
     }
