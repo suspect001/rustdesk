@@ -34,7 +34,7 @@ object LogUploader {
     fun uploadOnce(context: Context, appDir: String) {
         thread {
             try {
-                val logsDir = File(appDir, "RustDesk/Logs")
+                val logsDir = FileLog.resolveLogDir(context, appDir)
                 if (!logsDir.isDirectory) {
                     Log.d(logTag, "no logs dir: $logsDir")
                     return@thread
