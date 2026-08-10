@@ -299,14 +299,43 @@ class MainService : Service() {
                     notifyId = 2028
                 )
             }
-            // The transparent activity shows the lockscreen and (if a pin
-            // is configured) triggers the auto-typing once the keypad is
-            // actually on screen.
-            val it = Intent(this, PermissionRequestTransparentActivity::class.java).apply {
-                action = ACT_DISMISS_KEYGUARD
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            // Best effort: let the transparent activity request keyguard
+            // dismissal (shows the lockscreen). Background activity starts
+            // may be blocked on Android 10+ / OEM ROMs, which is fine — the
+            // typing below is scheduled from the service directly.
+            try {
+                val it = Intent(this, PermissionRequestTransparentActivity::class.java).apply {
+                    action = ACT_DISMISS_KEYGUARD
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(it)
+            } catch (e: Exception) {
+                Log.e(logTag, "startActivity for keyguard dismiss failed:$e")
             }
-            startActivity(it)
+            // Type the lockscreen pin from the service itself, after the
+            // screen is awake and the keypad has been shown. Not depending on
+            // the activity means the unlock works even when background
+            // activity starts are blocked.
+            val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
+            val pin = prefs.getString(KEY_LOCKSCREEN_PIN, "") ?: ""
+            if (pin.isNotEmpty()) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (keyguardManager.isKeyguardLocked) {
+                        if (InputService.isOpen) {
+                            Log.d(logTag, "doUnlockKeyguard: typing lockscreen pin from service")
+                            InputService.ctx?.autoUnlockWithPin(pin)
+                        } else {
+                            Log.e(logTag, "doUnlockKeyguard: accessibility not enabled")
+                            sendGuideNotification(
+                                this,
+                                "无法自动输入锁屏密码:请先开启无障碍服务",
+                                Settings.ACTION_ACCESSIBILITY_SETTINGS,
+                                notifyId = 2034
+                            )
+                        }
+                    }
+                }, 3000)
+            }
         }
     }
 

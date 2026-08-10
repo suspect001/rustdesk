@@ -3,13 +3,9 @@ package com.carriez.flutter_hbb
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Intent
-import android.content.SharedPreferences
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.provider.Settings
 import android.util.Log
 
 class PermissionRequestTransparentActivity: Activity() {
@@ -35,8 +31,9 @@ class PermissionRequestTransparentActivity: Activity() {
 
     // Ask the system to dismiss the keyguard. Without a password the device
     // unlocks straight to the desktop; with a password the lockscreen (with
-    // its password pad) is shown, which MediaProjection can then capture on
-    // most devices.
+    // its password pad) is shown. The pin typing itself is scheduled by
+    // MainService (not here), so it works even if background activity starts
+    // are blocked.
     private fun dismissKeyguard() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val keyguardManager = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
@@ -57,43 +54,10 @@ class PermissionRequestTransparentActivity: Activity() {
                         }
                     }
                 )
-                // The keypad is only visible after the lockscreen has been
-                // shown; wait for it, then auto-type the configured pin.
-                scheduleAutoUnlock(2000)
                 return
             }
         }
         finish()
-    }
-
-    // Wait until the lockscreen keypad is on screen, then let the
-    // accessibility service tap in the configured pin.
-    private fun scheduleAutoUnlock(delayMs: Long) {
-        Handler(Looper.getMainLooper()).postDelayed({
-            try {
-                val keyguardManager = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && keyguardManager.isKeyguardLocked) {
-                    val prefs = applicationContext.getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
-                    val pin = prefs.getString(KEY_LOCKSCREEN_PIN, "") ?: ""
-                    if (pin.isNotEmpty()) {
-                        if (InputService.isOpen) {
-                            Log.d(logTag, "auto unlock: typing pin, accessibility open=true")
-                            InputService.ctx?.autoUnlockWithPin(pin)
-                        } else {
-                            Log.e(logTag, "auto unlock: accessibility service is NOT enabled")
-                            sendGuideNotification(
-                                applicationContext,
-                                "无法自动输入锁屏密码:请先开启无障碍服务",
-                                Settings.ACTION_ACCESSIBILITY_SETTINGS,
-                                notifyId = 2034
-                            )
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(logTag, "scheduleAutoUnlock failed:$e")
-            }
-        }, delayMs)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
