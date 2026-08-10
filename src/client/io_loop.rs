@@ -1787,26 +1787,7 @@ impl<T: InvokeUiSession> Remote<T> {
                         self.audio_sender.send(MediaData::AudioFormat(f)).ok();
                     }
                     Some(misc::Union::ChatMessage(c)) => {
-                        if let Some(status) = c
-                            .text
-                            .strip_prefix(crate::common::AUTO_UNLOCK_STATUS_PREFIX)
-                        {
-                            // Status report from the Android controlled
-                            // device during the auto-unlock flow: show it as
-                            // a toast instead of a chat message.
-                            #[cfg(feature = "flutter")]
-                            {
-                                let handler = crate::flutter::get_handler();
-                                let session_id = self.handler.get_id();
-                                handler.push_event_to(
-                                    "toast",
-                                    &[("type", "info"), ("text", status)],
-                                    &[&session_id],
-                                );
-                            }
-                        } else {
-                            self.handler.new_message(c.text);
-                        }
+                        self.handler.new_message(c.text);
                     }
                     Some(misc::Union::PermissionInfo(p)) => {
                         log::info!("Change permission {:?} -> {}", p.permission, p.enabled);

@@ -64,10 +64,6 @@ pub const PLATFORM_ANDROID: &str = "Android";
 // controlled device to unlock itself (lockscreen and/or app lock).
 pub const AUTO_UNLOCK_CMD: &str = "@@rustdesk_auto_unlock@@";
 
-// Prefix for status messages sent back from the Android controlled device
-// to the controller during the auto-unlock flow (shown as a toast).
-pub const AUTO_UNLOCK_STATUS_PREFIX: &str = "@@rustdesk_unlock_status:";
-
 pub const TIMER_OUT: Duration = Duration::from_secs(1);
 pub const DEFAULT_KEEP_ALIVE: i32 = 60_000;
 

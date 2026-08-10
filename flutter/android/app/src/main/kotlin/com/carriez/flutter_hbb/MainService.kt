@@ -182,7 +182,6 @@ class MainService : Service() {
                 // the keyguard (lockscreen pin), and type the separately
                 // configured app lock pin if an app-lock screen is showing.
                 Log.d(logTag, "from rust:auto_unlock")
-                FFI.sendUnlockStatus("已收到解锁指令,开始执行...")
                 if (!powerManager.isInteractive) {
                     if (!wakeLock.isHeld) {
                         wakeLock.acquire(60_000)
@@ -193,7 +192,6 @@ class MainService : Service() {
                 val appLockPin = prefs.getString(KEY_APPLOCK_PIN, "") ?: ""
                 if (appLockPin.isNotEmpty()) {
                     if (!InputService.isOpen) {
-                        FFI.sendUnlockStatus("无障碍未开启,无法自动输入密码")
                         sendGuideNotification(
                             this,
                             "请开启无障碍服务,否则无法自动输入应用锁密码",
@@ -203,7 +201,6 @@ class MainService : Service() {
                     }
                     InputService.ctx?.autoUnlockAppLock(appLockPin)
                 } else {
-                    FFI.sendUnlockStatus("未配置应用锁密码(可只解锁锁屏)")
                     sendGuideNotification(
                         this,
                         "请在设置中配置应用锁自动解锁密码,或直接控制解锁后的界面",

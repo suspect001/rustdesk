@@ -18,7 +18,6 @@ import android.util.Log
 import android.widget.EditText
 import android.view.accessibility.AccessibilityEvent
 import android.view.ViewGroup.LayoutParams
-import ffi.FFI
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.KeyEvent as KeyEventAndroid
 import android.view.ViewConfiguration
@@ -134,7 +133,6 @@ class InputService : AccessibilityService() {
                 val km = getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
                 if (km.isKeyguardLocked) {
                     Log.e(logTag, "autoUnlockWithPin: keyguard still locked after typing, giving up")
-                    FFI.sendUnlockStatus("锁屏密码输入后仍未解锁,请检查密码;部分设备需上滑确认")
                     sendGuideNotification(
                         applicationContext,
                         "自动输入锁屏密码后仍未解锁,请检查密码;部分设备输入正确后需上滑确认",
@@ -143,7 +141,6 @@ class InputService : AccessibilityService() {
                     )
                 } else {
                     Log.d(logTag, "autoUnlockWithPin: unlocked")
-                    FFI.sendUnlockStatus("锁屏已解锁")
                 }
             } catch (e: Exception) {
                 Log.e(logTag, "autoUnlockWithPin failed:$e")
@@ -181,7 +178,6 @@ class InputService : AccessibilityService() {
                 }
                 if (!found) {
                     Log.d(logTag, "autoUnlockAppLock: no app lock password field found")
-                    FFI.sendUnlockStatus("未检测到应用锁界面,未输入密码")
                     sendGuideNotification(
                         applicationContext,
                         "未检测到应用锁界面,未输入密码",
@@ -194,7 +190,6 @@ class InputService : AccessibilityService() {
                 // Re-verify the app-lock window is still showing before typing
                 // (it may have auto-dismissed in the meantime).
                 if (!findPasswordField()) {
-                    FFI.sendUnlockStatus("应用锁界面已消失,未输入密码")
                     sendGuideNotification(
                         applicationContext,
                         "应用锁界面已消失,未输入密码",
@@ -204,7 +199,6 @@ class InputService : AccessibilityService() {
                     return@thread
                 }
                 Log.d(logTag, "autoUnlockAppLock: typing ${pin.length} digits")
-                FFI.sendUnlockStatus("正在输入应用锁密码...")
                 tapPinDigits(pin)
                 // Poll for the app-lock window to disappear (up to ~3s):
                 // MIUI dismisses it with a transition animation, so a single
@@ -220,7 +214,6 @@ class InputService : AccessibilityService() {
                 }
                 if (unlocked) {
                     Log.d(logTag, "autoUnlockAppLock: unlocked")
-                    FFI.sendUnlockStatus("应用锁已解锁")
                     sendGuideNotification(
                         applicationContext,
                         "已自动输入应用锁密码",
@@ -229,7 +222,6 @@ class InputService : AccessibilityService() {
                     )
                 } else {
                     Log.e(logTag, "autoUnlockAppLock: still locked after typing")
-                    FFI.sendUnlockStatus("应用锁密码输入后仍未解锁,请检查密码")
                     sendGuideNotification(
                         applicationContext,
                         "自动输入应用锁密码后仍未解锁,请检查密码",
@@ -352,7 +344,6 @@ class InputService : AccessibilityService() {
                 Thread.sleep(180)
             }
             if (rejected) {
-                FFI.sendUnlockStatus("系统拒绝了自动点击(无障碍手势受限),无法输入密码")
                 sendGuideNotification(
                     applicationContext,
                     "系统拒绝了自动点击(无障碍手势被限制),无法自动输入密码",

@@ -457,26 +457,6 @@ const SEND_TIMEOUT_VIDEO: u64 = 12_000;
 const SEND_TIMEOUT_OTHER: u64 = SEND_TIMEOUT_VIDEO * 10;
 const SESSION_TIMEOUT: Duration = Duration::from_secs(30);
 
-// Send a status text (prefixed with AUTO_UNLOCK_STATUS_PREFIX) back to all
-// connected controllers so the controlling side can display progress of the
-// auto-unlock flow. Used by the Android controlled side.
-pub fn broadcast_unlock_status(text: &str) {
-    let server = crate::server::CLIENT_SERVER.read().unwrap();
-    let mut misc = Misc::new();
-    misc.set_chat_message(ChatMessage {
-        text: format!("{}{}", crate::common::AUTO_UNLOCK_STATUS_PREFIX, text),
-        ..Default::default()
-    });
-    let mut msg_out = Message::new();
-    msg_out.set_misc(misc);
-    let msg = Arc::new(msg_out);
-    for conn in server.connections.values() {
-        if let Some(tx) = &conn.tx {
-            let _ = tx.send((Instant::now(), msg.clone()));
-        }
-    }
-}
-
 impl Connection {
     pub async fn start(
         addr: SocketAddr,
