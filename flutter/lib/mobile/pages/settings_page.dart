@@ -720,6 +720,63 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
           controller.dispose();
         }));
 
+    enhancementsTiles.add(SettingsTile(
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(translate('Upload diagnostic logs')),
+          Text(
+              '* ${translate('Upload logs of the selected time range to the diagnostic server')}',
+              style: Theme.of(context).textTheme.bodySmall),
+        ]),
+        onPressed: (context) async {
+          var selected = 1.0;
+          final res = await showDialog<double>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(translate('Upload diagnostic logs')),
+              content: StatefulBuilder(builder: (ctx, setState) {
+                return DropdownButtonFormField<double>(
+                  initialValue: selected,
+                  decoration: InputDecoration(labelText: translate('Time range')),
+                  items: const [
+                    DropdownMenuItem(value: 0.5, child: Text('0.5 小时')),
+                    DropdownMenuItem(value: 1.0, child: Text('1 小时')),
+                    DropdownMenuItem(value: 2.0, child: Text('2 小时')),
+                    DropdownMenuItem(value: 4.0, child: Text('4 小时')),
+                    DropdownMenuItem(value: 8.0, child: Text('8 小时')),
+                    DropdownMenuItem(value: 24.0, child: Text('24 小时')),
+                  ],
+                  onChanged: (v) => setState(() => selected = v!),
+                );
+              }),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text(translate('Cancel'))),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, selected),
+                    child: Text(translate('OK'))),
+              ],
+            ),
+          );
+          if (res != null) {
+            final hours = (res * 2).round() ~/ 2;
+            final msg = await gFFI.invokeMethod(AndroidChannel.kUploadLogs, hours);
+            if (context.mounted) {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  content: Text(msg?.toString() ?? 'unknown'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(translate('OK'))),
+                  ],
+                ),
+              );
+            }
+          }
+        }));
+
     if (!bind.isCustomClient()) {
       enhancementsTiles.add(
         SettingsTile.switchTile(

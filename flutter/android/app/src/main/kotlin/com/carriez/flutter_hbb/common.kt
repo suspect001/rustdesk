@@ -57,6 +57,7 @@ const val GET_LOCKSCREEN_PIN = "get_lockscreen_pin"
 const val SET_LOCKSCREEN_PIN = "set_lockscreen_pin"
 const val GET_APPLOCK_PIN = "get_applock_pin"
 const val SET_APPLOCK_PIN = "set_applock_pin"
+const val UPLOAD_LOGS = "upload_logs"
 
 const val KEY_IS_SUPPORT_VOICE_CALL = "KEY_IS_SUPPORT_VOICE_CALL"
 

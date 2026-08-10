@@ -456,6 +456,7 @@ class AndroidChannel {
   static final kSetLockscreenPin = "set_lockscreen_pin";
   static final kGetApplockPin = "get_applock_pin";
   static final kSetApplockPin = "set_applock_pin";
+  static final kUploadLogs = "upload_logs";
 }
 
 /// flutter/packages/flutter/lib/src/services/keyboard_key.dart -> _keyLabels

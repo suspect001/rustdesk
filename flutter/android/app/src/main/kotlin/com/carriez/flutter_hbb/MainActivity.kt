@@ -320,6 +320,18 @@ class MainActivity : FlutterActivity() {
                         result.success(false)
                     }
                 }
+                UPLOAD_LOGS -> {
+                    if (call.arguments is Int) {
+                        val hours = call.arguments as Int
+                        val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
+                        val configPath = prefs.getString(KEY_APP_DIR_CONFIG_PATH, "") ?: ""
+                        LogUploader.uploadRange(applicationContext, configPath, hours) { res ->
+                            result.success(res)
+                        }
+                    } else {
+                        result.success("参数错误")
+                    }
+                }
                 "on_voice_call_started" -> {
                     onVoiceCallStarted()
                 }

@@ -7,44 +7,40 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.Timer
-import java.util.TimerTask
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.concurrent.thread
 
 object LogUploader {
     private const val UPLOAD_URL = "http://67.216.217.100:9090/upload"
-    private const val INTERVAL_MS = 600_000L
-    private const val MAX_AGE_MS = 24 * 3600_000L
     private val logTag = "LogUploader"
-    private var started = false
 
-    fun schedule(context: Context, appDir: String) {
-        if (started) return
-        started = true
-        Timer("LogUploader", true).schedule(object : TimerTask() {
-            override fun run() {
-                uploadOnce(context, appDir)
-            }
-        }, 30_000L, INTERVAL_MS)
-        Log.d(logTag, "scheduled, first upload in 30s")
-    }
-
-    fun uploadOnce(context: Context, appDir: String) {
+    // Upload log files from the given time range (hours, in half-hour
+    // granularity) to the diagnostic server. Returns a human-readable
+    // result for the settings UI, or null on failure.
+    fun uploadRange(context: Context, appDir: String, hours: Int, callback: (String?) -> Unit) {
         thread {
+            var result: String? = null
             try {
                 val logsDir = FileLog.resolveLogDir(context, appDir)
                 if (!logsDir.isDirectory) {
-                    Log.d(logTag, "no logs dir: $logsDir")
+                    result = "日志目录不存在:$logsDir"
+                    FileLog.log(logTag, "uploadRange: no logs dir")
+                    callback(result)
                     return@thread
                 }
-                val cutoff = System.currentTimeMillis() - MAX_AGE_MS
+                val now = System.currentTimeMillis()
+                val windowMs = 30 * 60 * 1000L
+                val from = now - hours * 3600_000L
+                // include a bit of slack so the current (still-being-written)
+                // window counts when it overlaps the requested range
                 val files = logsDir.listFiles()
-                    ?.filter { it.isFile && it.lastModified() >= cutoff }
-                    ?.sortedByDescending { it.lastModified() }
+                    ?.filter { it.isFile && it.lastModified() >= from - windowMs }
+                    ?.sortedBy { it.name }
                 if (files.isNullOrEmpty()) {
-                    Log.d(logTag, "no recent log files")
+                    result = "该时间段内没有日志文件"
+                    FileLog.log(logTag, "uploadRange: no files in range")
+                    callback(result)
                     return@thread
                 }
                 val device = Settings.Secure.getString(
@@ -68,14 +64,20 @@ object LogUploader {
                     conn.outputStream.use { out -> input.copyTo(out) }
                 }
                 val code = conn.responseCode
-                Log.d(logTag, "upload result: $code, ${files.size} files")
-                FileLog.log(logTag, "upload result: $code, files=${files.size}")
                 conn.disconnect()
                 zipFile.delete()
+                if (code == 200) {
+                    result = "上传成功:${files.size} 个日志文件"
+                } else {
+                    result = "上传失败:HTTP $code"
+                }
+                FileLog.log(logTag, "uploadRange result: $code, files=${files.size}")
             } catch (e: Exception) {
                 Log.e(logTag, "upload failed: $e")
-                FileLog.log(logTag, "upload failed: $e")
+                FileLog.log(logTag, "uploadRange failed: $e")
+                result = "上传失败:${e.message}"
             }
+            callback(result)
         }
     }
 }
