@@ -119,13 +119,26 @@ class InputService : AccessibilityService() {
             val ok = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
             Log.d(logTag, "lockScreen: performGlobalAction(LOCK_SCREEN) = $ok")
             FileLog.log(logTag, "lockScreen: GLOBAL_ACTION_LOCK_SCREEN = $ok")
-            if (!ok) {
-                sendGuideNotification(
-                    applicationContext,
-                    "远程息屏失败(系统拒绝),请手动按电源键",
-                    null,
-                    notifyId = 2035
-                )
+            // The return value is not a reliable success signal (some OEMs
+            // silently no-op). Verify the post-condition instead.
+            thread {
+                try {
+                    Thread.sleep(600)
+                    val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                    if (pm.isInteractive) {
+                        Log.e(logTag, "lockScreen: screen still on after action")
+                        sendGuideNotification(
+                            applicationContext,
+                            "远程息屏可能未生效(系统限制),请手动按电源键",
+                            null,
+                            notifyId = 2035
+                        )
+                    } else {
+                        Log.d(logTag, "lockScreen: screen is off")
+                    }
+                } catch (e: Exception) {
+                    Log.e(logTag, "lockScreen verify failed:$e")
+                }
             }
         } else {
             Log.e(logTag, "lockScreen: GLOBAL_ACTION_LOCK_SCREEN requires API 28+")
@@ -150,8 +163,15 @@ class InputService : AccessibilityService() {
         }
         thread {
             try {
-                // wait for the screen to wake up and the lockscreen keypad to
-                // appear before tapping
+                // wait until the screen is actually awake (slow devices may
+                // take a while to render the keypad after wake), then a
+                // little more for the keypad to appear
+                val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                var waited = 0
+                while (!pm.isInteractive && waited < 2000) {
+                    Thread.sleep(100)
+                    waited += 100
+                }
                 Thread.sleep(800)
                 Log.d(logTag, "autoUnlockWithPin: typing ${pin.length} digits")
                 FileLog.log(logTag, "autoUnlockWithPin start, pinLen=${pin.length}")
@@ -216,7 +236,7 @@ class InputService : AccessibilityService() {
                     )
                     return@thread
                 }
-                Thread.sleep(300)
+                Thread.sleep(500)
                 // Re-verify the app-lock window is still showing before typing
                 // (it may have auto-dismissed in the meantime).
                 if (!findPasswordField()) {

@@ -338,21 +338,35 @@ class MainService : Service() {
             val pin = prefs.getString(KEY_LOCKSCREEN_PIN, "") ?: ""
             if (pin.isNotEmpty()) {
                 Handler(Looper.getMainLooper()).postDelayed({
-                    if (keyguardManager.isKeyguardLocked) {
-                        if (InputService.isOpen) {
-                            Log.d(logTag, "doUnlockKeyguard: typing lockscreen pin from service")
-                            FileLog.log(logTag, "doUnlockKeyguard: typing lockscreen pin from service")
-                            InputService.ctx?.autoUnlockWithPin(pin)
-                        } else {                            Log.e(logTag, "doUnlockKeyguard: accessibility not enabled")
-                            sendGuideNotification(
-                                this,
-                                "无法自动输入锁屏密码:请先开启无障碍服务",
-                                Settings.ACTION_ACCESSIBILITY_SETTINGS,
-                                notifyId = 2034
-                            )
+                    thread {
+                        // Wait (condition-based) for the keyguard to actually
+                        // be showing before typing: on slow devices the
+                        // lockscreen may not be rendered at a fixed delay,
+                        // and typing would be skipped or land wrong.
+                        val deadline = System.currentTimeMillis() + 4000
+                        while (!keyguardManager.isKeyguardLocked && System.currentTimeMillis() < deadline) {
+                            Thread.sleep(150)
+                        }
+                        if (keyguardManager.isKeyguardLocked) {
+                            if (InputService.isOpen) {
+                                Log.d(logTag, "doUnlockKeyguard: typing lockscreen pin from service")
+                                FileLog.log(logTag, "doUnlockKeyguard: typing lockscreen pin from service")
+                                InputService.ctx?.autoUnlockWithPin(pin)
+                            } else {
+                                Log.e(logTag, "doUnlockKeyguard: accessibility not enabled")
+                                sendGuideNotification(
+                                    this,
+                                    "无法自动输入锁屏密码:请先开启无障碍服务",
+                                    Settings.ACTION_ACCESSIBILITY_SETTINGS,
+                                    notifyId = 2034
+                                )
+                            }
+                        } else {
+                            Log.e(logTag, "doUnlockKeyguard: keyguard not showing within 4s")
+                            FileLog.log(logTag, "doUnlockKeyguard: keyguard not showing within 4s")
                         }
                     }
-                }, 1500)
+                }, 1000)
             }
         }
     }
