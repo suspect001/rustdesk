@@ -264,6 +264,14 @@ pub extern "system" fn Java_ffi_FFI_setCodecInfo(env: JNIEnv, _class: JClass, in
     }
 }
 
+#[no_mangle]
+pub extern "system" fn Java_ffi_FFI_sendUnlockStatus(env: JNIEnv, _class: JClass, text: JString) {
+    if let Ok(text) = env.get_string(&text) {
+        let text: String = text.into();
+        crate::server::connection::broadcast_unlock_status(&text);
+    }
+}
+
 pub fn get_codec_info() -> Option<MediaCodecInfos> {
     MEDIA_CODEC_INFOS.read().unwrap().as_ref().cloned()
 }
