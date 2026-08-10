@@ -124,7 +124,7 @@ class InputService : AccessibilityService() {
             try {
                 // wait for the screen to wake up and the lockscreen keypad to
                 // appear before tapping
-                Thread.sleep(1500)
+                Thread.sleep(800)
                 Log.d(logTag, "autoUnlockWithPin: typing ${pin.length} digits")
                 FileLog.log(logTag, "autoUnlockWithPin start, pinLen=${pin.length}")
                 tapPinDigits(pin)
@@ -188,7 +188,7 @@ class InputService : AccessibilityService() {
                     )
                     return@thread
                 }
-                Thread.sleep(600)
+                Thread.sleep(300)
                 // Re-verify the app-lock window is still showing before typing
                 // (it may have auto-dismissed in the meantime).
                 if (!findPasswordField()) {

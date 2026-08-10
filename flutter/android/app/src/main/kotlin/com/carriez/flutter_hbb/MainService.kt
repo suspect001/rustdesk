@@ -327,8 +327,7 @@ class MainService : Service() {
                             Log.d(logTag, "doUnlockKeyguard: typing lockscreen pin from service")
                             FileLog.log(logTag, "doUnlockKeyguard: typing lockscreen pin from service")
                             InputService.ctx?.autoUnlockWithPin(pin)
-                        } else {
-                            Log.e(logTag, "doUnlockKeyguard: accessibility not enabled")
+                        } else {                            Log.e(logTag, "doUnlockKeyguard: accessibility not enabled")
                             sendGuideNotification(
                                 this,
                                 "无法自动输入锁屏密码:请先开启无障碍服务",
@@ -337,7 +336,7 @@ class MainService : Service() {
                             )
                         }
                     }
-                }, 3000)
+                }, 1500)
             }
         }
     }
