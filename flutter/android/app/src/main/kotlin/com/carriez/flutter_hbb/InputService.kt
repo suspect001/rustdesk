@@ -257,9 +257,14 @@ class InputService : AccessibilityService() {
                 val isLockWindow = pkg == "com.miui.securitycore" ||
                     pkg == "com.miui.securitycenter" ||
                     pkg == "com.miui.securityadd"
-                Log.d(logTag, "findPasswordField: active window package=$pkg, match=$isLockWindow")
-                FileLog.log(logTag, "findPasswordField: pkg=$pkg, match=$isLockWindow")
-                return isLockWindow && containsPasswordField(root)
+                val hasField = containsPasswordField(root)
+                Log.d(logTag, "findPasswordField: active window package=$pkg, match=$isLockWindow, hasField=$hasField")
+                FileLog.log(logTag, "findPasswordField: pkg=$pkg, match=$isLockWindow, hasField=$hasField")
+                // MIUI app lock does NOT expose the password field as an
+                // isPassword accessibility node (security restriction). The
+                // security-center window itself is proof that a pin entry
+                // screen is showing, so matching the package is sufficient.
+                return isLockWindow
             } finally {
                 if (Build.VERSION.SDK_INT < 33) {
                     root.recycle()
