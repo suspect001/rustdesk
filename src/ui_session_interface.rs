@@ -584,6 +584,18 @@ impl<T: InvokeUiSession> Session<T> {
         self.send(Data::Message(msg_out));
     }
 
+    // Ask the Android controlled device to turn its screen off (and lock).
+    pub fn screen_off(&self) {
+        let mut misc = Misc::new();
+        misc.set_chat_message(ChatMessage {
+            text: crate::common::SCREEN_OFF_CMD.to_owned(),
+            ..Default::default()
+        });
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        self.send(Data::Message(msg_out));
+    }
+
     #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     pub fn send_plugin_request(&self, request: PluginRequest) {

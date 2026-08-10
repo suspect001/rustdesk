@@ -2034,6 +2034,12 @@ pub fn session_auto_unlock(session_id: SessionID) {
     }
 }
 
+pub fn session_screen_off(session_id: SessionID) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.screen_off();
+    }
+}
+
 pub fn session_get_audit_server_sync(session_id: SessionID, typ: String) -> SyncReturn<String> {
     let res = if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.get_audit_server(typ)

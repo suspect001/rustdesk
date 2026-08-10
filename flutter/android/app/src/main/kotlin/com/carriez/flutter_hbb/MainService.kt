@@ -177,6 +177,22 @@ class MainService : Service() {
                 Log.d(logTag, "from rust:stop_capture")
                 stopCapture()
             }
+            "screen_off" -> {
+                // Triggered by the controlling side: turn off (and lock) the
+                // screen via the accessibility service.
+                Log.d(logTag, "from rust:screen_off")
+                FileLog.log(logTag, "from rust:screen_off, interactive=${powerManager.isInteractive}")
+                if (InputService.isOpen) {
+                    InputService.ctx?.lockScreen()
+                } else {
+                    sendGuideNotification(
+                        this,
+                        "请开启无障碍服务,否则无法远程息屏",
+                        Settings.ACTION_ACCESSIBILITY_SETTINGS,
+                        notifyId = 2035
+                    )
+                }
+            }
             "auto_unlock" -> {
                 // Triggered by the controlling side: wake the screen, unlock
                 // the keyguard (lockscreen pin), and type the separately

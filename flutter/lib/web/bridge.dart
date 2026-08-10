@@ -1288,6 +1288,11 @@ class RustdeskImpl {
     return Future(() => js.context.callMethod('setByName', ['auto_unlock']));
   }
 
+  Future<void> sessionScreenOff(
+      {required UuidValue sessionId, dynamic hint}) {
+    return Future(() => js.context.callMethod('setByName', ['screen_off']));
+  }
+
   String sessionGetAuditServerSync(
       {required UuidValue sessionId, required String typ, dynamic hint}) {
     return js.context.callMethod('getByName', ['audit_server', typ]);

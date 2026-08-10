@@ -549,6 +549,17 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
           }),
     );
   }
+  // screenOff: ask the Android controlled device to turn its screen off.
+  if (isDefaultConn && pi.platform == kPeerPlatformAndroid) {
+    v.add(
+      TTextMenu(
+          child: Text(translate('Turn off device screen')),
+          onPressed: () {
+            bind.sessionScreenOff(sessionId: sessionId);
+            showToast(translate('Screen off command sent'));
+          }),
+    );
+  }
   // insertLock
   if (isDefaultConn && !ffiModel.viewOnly && ffi.ffiModel.keyboard) {
     v.add(

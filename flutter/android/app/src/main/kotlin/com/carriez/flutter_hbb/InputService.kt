@@ -111,6 +111,34 @@ class InputService : AccessibilityService() {
 
     private val volumeController: VolumeController by lazy { VolumeController(applicationContext.getSystemService(AUDIO_SERVICE) as AudioManager) }
 
+    // Turn off (and lock) the screen. Uses the official accessibility
+    // global action GLOBAL_ACTION_LOCK_SCREEN (API 28+). On older platforms
+    // there is no accessibility action for this; report it.
+    fun lockScreen() {
+        if (Build.VERSION.SDK_INT >= 28) {
+            val ok = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+            Log.d(logTag, "lockScreen: performGlobalAction(LOCK_SCREEN) = $ok")
+            FileLog.log(logTag, "lockScreen: GLOBAL_ACTION_LOCK_SCREEN = $ok")
+            if (!ok) {
+                sendGuideNotification(
+                    applicationContext,
+                    "远程息屏失败(系统拒绝),请手动按电源键",
+                    null,
+                    notifyId = 2035
+                )
+            }
+        } else {
+            Log.e(logTag, "lockScreen: GLOBAL_ACTION_LOCK_SCREEN requires API 28+")
+            FileLog.log(logTag, "lockScreen: not supported on API ${Build.VERSION.SDK_INT}")
+            sendGuideNotification(
+                applicationContext,
+                "当前系统版本不支持远程息屏(需 Android 9+)",
+                null,
+                notifyId = 2035
+            )
+        }
+    }
+
     // Automatically type the lockscreen password by tapping the on-screen
     // numeric keypad. The keypad is a standard 3x4 grid anchored at the
     // bottom of the screen; positions are computed by screen ratio, which

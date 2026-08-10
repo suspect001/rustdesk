@@ -64,6 +64,10 @@ pub const PLATFORM_ANDROID: &str = "Android";
 // controlled device to unlock itself (lockscreen and/or app lock).
 pub const AUTO_UNLOCK_CMD: &str = "@@rustdesk_auto_unlock@@";
 
+// Special chat text used by the controlling side to turn off / lock the
+// screen of the Android controlled device.
+pub const SCREEN_OFF_CMD: &str = "@@rustdesk_screen_off@@";
+
 pub const TIMER_OUT: Duration = Duration::from_secs(1);
 pub const DEFAULT_KEEP_ALIVE: i32 = 60_000;
 

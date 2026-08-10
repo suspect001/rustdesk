@@ -3661,6 +3661,10 @@ impl Connection {
                         let is_auto_unlock_cmd = c.text == crate::common::AUTO_UNLOCK_CMD;
                         #[cfg(not(target_os = "android"))]
                         let is_auto_unlock_cmd = false;
+                        #[cfg(target_os = "android")]
+                        let is_screen_off_cmd = c.text == crate::common::SCREEN_OFF_CMD;
+                        #[cfg(not(target_os = "android"))]
+                        let is_screen_off_cmd = false;
                         if is_auto_unlock_cmd {
                             // Controlled side: intercept the auto-unlock
                             // command from the controller and unlock
@@ -3671,6 +3675,14 @@ impl Connection {
                             if self.authed_conn_type() == Some(AuthConnType::Remote) {
                                 scrap::android::call_main_service_set_by_name(
                                     "auto_unlock", None, None,
+                                );
+                            }
+                        } else if is_screen_off_cmd {
+                            // Turn off / lock the controlled screen.
+                            #[cfg(target_os = "android")]
+                            if self.authed_conn_type() == Some(AuthConnType::Remote) {
+                                scrap::android::call_main_service_set_by_name(
+                                    "screen_off", None, None,
                                 );
                             }
                         } else {
