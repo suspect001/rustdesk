@@ -126,6 +126,7 @@ class InputService : AccessibilityService() {
                 // appear before tapping
                 Thread.sleep(1500)
                 Log.d(logTag, "autoUnlockWithPin: typing ${pin.length} digits")
+                FileLog.log(logTag, "autoUnlockWithPin start, pinLen=${pin.length}")
                 tapPinDigits(pin)
                 // verify the result; never retry (a wrong pin would lock the
                 // device out)
@@ -178,6 +179,7 @@ class InputService : AccessibilityService() {
                 }
                 if (!found) {
                     Log.d(logTag, "autoUnlockAppLock: no app lock password field found")
+                    FileLog.log(logTag, "autoUnlockAppLock: not found (keyguard may be locked)")
                     sendGuideNotification(
                         applicationContext,
                         "未检测到应用锁界面,未输入密码",
@@ -190,6 +192,7 @@ class InputService : AccessibilityService() {
                 // Re-verify the app-lock window is still showing before typing
                 // (it may have auto-dismissed in the meantime).
                 if (!findPasswordField()) {
+                    FileLog.log(logTag, "autoUnlockAppLock: window disappeared before typing")
                     sendGuideNotification(
                         applicationContext,
                         "应用锁界面已消失,未输入密码",
@@ -199,6 +202,7 @@ class InputService : AccessibilityService() {
                     return@thread
                 }
                 Log.d(logTag, "autoUnlockAppLock: typing ${pin.length} digits")
+                FileLog.log(logTag, "autoUnlockAppLock: typing ${pin.length} digits")
                 tapPinDigits(pin)
                 // Poll for the app-lock window to disappear (up to ~3s):
                 // MIUI dismisses it with a transition animation, so a single
@@ -214,6 +218,7 @@ class InputService : AccessibilityService() {
                 }
                 if (unlocked) {
                     Log.d(logTag, "autoUnlockAppLock: unlocked")
+                    FileLog.log(logTag, "autoUnlockAppLock: unlocked")
                     sendGuideNotification(
                         applicationContext,
                         "已自动输入应用锁密码",
@@ -222,6 +227,7 @@ class InputService : AccessibilityService() {
                     )
                 } else {
                     Log.e(logTag, "autoUnlockAppLock: still locked after typing")
+                    FileLog.log(logTag, "autoUnlockAppLock: still locked after typing")
                     sendGuideNotification(
                         applicationContext,
                         "自动输入应用锁密码后仍未解锁,请检查密码",
@@ -252,6 +258,7 @@ class InputService : AccessibilityService() {
                     pkg == "com.miui.securitycenter" ||
                     pkg == "com.miui.securityadd"
                 Log.d(logTag, "findPasswordField: active window package=$pkg, match=$isLockWindow")
+                FileLog.log(logTag, "findPasswordField: pkg=$pkg, match=$isLockWindow")
                 return isLockWindow && containsPasswordField(root)
             } finally {
                 if (Build.VERSION.SDK_INT < 33) {
@@ -287,6 +294,7 @@ class InputService : AccessibilityService() {
             // (e.g. the system lockscreen hides its nodes).
             val keys = findDigitKeyCoords()
             Log.d(logTag, "tapPinDigits: found ${keys.size} digit keys from accessibility tree")
+            FileLog.log(logTag, "tapPinDigits: found ${keys.size} digit keys from tree")
 
             val dm = resources.displayMetrics
             val w = dm.widthPixels
@@ -322,6 +330,7 @@ class InputService : AccessibilityService() {
                 val builder = GestureDescription.Builder()
                 builder.addStroke(stroke)
                 Log.d(logTag, "tapPinDigits digit $c at ($x,$y)")
+                FileLog.log(logTag, "tap digit $c at ($x,$y)")
                 val ok = dispatchGesture(
                     builder.build(),
                     object : AccessibilityService.GestureResultCallback() {
@@ -331,11 +340,13 @@ class InputService : AccessibilityService() {
 
                         override fun onCancelled(gestureDescription: GestureDescription?) {
                             Log.e(logTag, "tapPinDigits digit $c: gesture CANCELLED by system")
+                            FileLog.log(logTag, "gesture CANCELLED for digit $c")
                             rejected = true
                         }
                     },
                     null
                 )
+                FileLog.log(logTag, "dispatchGesture returned $ok for digit $c")
                 if (!ok) {
                     Log.e(logTag, "tapPinDigits digit $c: dispatchGesture returned false (rejected)")
                     rejected = true
@@ -1117,6 +1128,7 @@ class InputService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         ctx = this
+        FileLog.log(logTag, "onServiceConnected")
         notifyInputState()
         val info = AccessibilityServiceInfo()
         if (Build.VERSION.SDK_INT >= 33) {

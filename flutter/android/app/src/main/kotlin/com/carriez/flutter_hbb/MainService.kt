@@ -182,6 +182,7 @@ class MainService : Service() {
                 // the keyguard (lockscreen pin), and type the separately
                 // configured app lock pin if an app-lock screen is showing.
                 Log.d(logTag, "from rust:auto_unlock")
+                FileLog.log(logTag, "from rust:auto_unlock, interactive=${powerManager.isInteractive}")
                 if (!powerManager.isInteractive) {
                     if (!wakeLock.isHeld) {
                         wakeLock.acquire(60_000)
@@ -253,6 +254,7 @@ class MainService : Service() {
         // in parallel would enter the pin twice and lock the device out.
         if (!unlockInProgress.compareAndSet(false, true)) {
             Log.d(logTag, "unlockKeyguard already in progress, skip")
+            FileLog.log(logTag, "unlock guard skip (session-start path)")
             return
         }
         try {
@@ -323,6 +325,7 @@ class MainService : Service() {
                     if (keyguardManager.isKeyguardLocked) {
                         if (InputService.isOpen) {
                             Log.d(logTag, "doUnlockKeyguard: typing lockscreen pin from service")
+                            FileLog.log(logTag, "doUnlockKeyguard: typing lockscreen pin from service")
                             InputService.ctx?.autoUnlockWithPin(pin)
                         } else {
                             Log.e(logTag, "doUnlockKeyguard: accessibility not enabled")
@@ -388,6 +391,8 @@ class MainService : Service() {
         // keep the config dir same with flutter
         val prefs = applicationContext.getSharedPreferences(KEY_SHARED_PREFERENCES, FlutterActivity.MODE_PRIVATE)
         val configPath = prefs.getString(KEY_APP_DIR_CONFIG_PATH, "") ?: ""
+        FileLog.init(configPath)
+        FileLog.log(logTag, "MainService onCreate, sdk=${Build.VERSION.SDK_INT}, configPath=$configPath")
         FFI.startServer(configPath, "")
 
         createForegroundNotification()

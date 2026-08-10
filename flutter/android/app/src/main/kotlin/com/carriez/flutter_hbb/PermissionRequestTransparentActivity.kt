@@ -42,14 +42,17 @@ class PermissionRequestTransparentActivity: Activity() {
                     this,
                     object : KeyguardManager.KeyguardDismissCallback() {
                         override fun onDismissSucceeded() {
+                            FileLog.log("permissionRequest", "keyguard dismiss succeeded")
                             finish()
                         }
 
                         override fun onDismissCancelled() {
+                            FileLog.log("permissionRequest", "keyguard dismiss cancelled")
                             finish()
                         }
 
                         override fun onDismissError() {
+                            FileLog.log("permissionRequest", "keyguard dismiss error")
                             finish()
                         }
                     }
