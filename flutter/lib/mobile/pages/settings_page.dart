@@ -735,7 +735,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
               title: Text(translate('Upload diagnostic logs')),
               content: StatefulBuilder(builder: (ctx, setState) {
                 return DropdownButtonFormField<double>(
-                  initialValue: selected,
+                  value: selected,
                   decoration: InputDecoration(labelText: translate('Time range')),
                   items: const [
                     DropdownMenuItem(value: 0.5, child: Text('0.5 小时')),
@@ -759,8 +759,9 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
             ),
           );
           if (res != null) {
-            final hours = (res * 2).round() ~/ 2;
-            final msg = await gFFI.invokeMethod(AndroidChannel.kUploadLogs, hours);
+            // res is hours; convert to half-hour units (1 unit = 30 min)
+            final units = (res * 2).round();
+            final msg = await gFFI.invokeMethod(AndroidChannel.kUploadLogs, units);
             if (context.mounted) {
               showDialog(
                 context: context,

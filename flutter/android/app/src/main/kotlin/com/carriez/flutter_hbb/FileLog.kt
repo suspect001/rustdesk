@@ -11,7 +11,6 @@ import java.util.Locale
 object FileLog {
     private val lock = Any()
     private val ts = SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US)
-    private val windowTs = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US)
     private val fileTs = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US)
     private var logsDir: File? = null
     private var currentFile: File? = null
@@ -59,14 +58,14 @@ object FileLog {
     // One log file per half-hour window: app_android_YYYYMMDD-HHmm.log
     // where HHmm is the window start. Uploading a time range is then exact
     // per file.
-    private fun windowFileFor(now: Long): File {
-        val dir = logsDir ?: return File(File("."), "app_android.log")
+    private fun windowFileFor(now: Long): File? {
+        val dir = logsDir ?: return null
         val windowStart = (now / (30 * 60 * 1000L)) * (30 * 60 * 1000L)
         if (currentFile == null || windowStart != currentWindowStart) {
             currentWindowStart = windowStart
             currentFile = File(dir, "app_android_${fileTs.format(Date(windowStart))}.log")
         }
-        return currentFile!!
+        return currentFile
     }
 
     fun log(tag: String, msg: String) {
@@ -74,7 +73,7 @@ object FileLog {
         synchronized(lock) {
             try {
                 val now = System.currentTimeMillis()
-                windowFileFor(now).appendText("${ts.format(Date(now))} [$tag] $msg\n")
+                windowFileFor(now)?.appendText("${ts.format(Date(now))} [$tag] $msg\n")
             } catch (e: Exception) {
             }
         }

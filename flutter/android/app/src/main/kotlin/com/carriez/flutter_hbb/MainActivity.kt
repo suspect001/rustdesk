@@ -322,11 +322,15 @@ class MainActivity : FlutterActivity() {
                 }
                 UPLOAD_LOGS -> {
                     if (call.arguments is Int) {
-                        val hours = call.arguments as Int
+                        val units = call.arguments as Int
                         val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
                         val configPath = prefs.getString(KEY_APP_DIR_CONFIG_PATH, "") ?: ""
-                        LogUploader.uploadRange(applicationContext, configPath, hours) { res ->
-                            result.success(res)
+                        LogUploader.uploadRange(applicationContext, configPath, units) { res ->
+                            try {
+                                result.success(res)
+                            } catch (e: Exception) {
+                                Log.e(logTag, "upload_logs result failed:$e")
+                            }
                         }
                     } else {
                         result.success("参数错误")
