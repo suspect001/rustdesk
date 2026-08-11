@@ -422,6 +422,7 @@ class MainService : Service() {
         val configPath = prefs.getString(KEY_APP_DIR_CONFIG_PATH, "") ?: ""
         FileLog.init(applicationContext, configPath)
         FileLog.log(logTag, "MainService onCreate, sdk=${Build.VERSION.SDK_INT}, configPath=$configPath")
+        RootKeepalive.tryApply()
         FFI.startServer(configPath, "")
 
         createForegroundNotification()
