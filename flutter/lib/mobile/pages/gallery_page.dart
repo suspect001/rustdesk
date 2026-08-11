@@ -185,7 +185,7 @@ class GalleryImagePage extends StatelessWidget {
         child: InteractiveViewer(
           maxScale: 5,
           child: Image.network(
-            '$_base/image?path=${Uri.encodeComponent(path)}',
+            'http://127.0.0.1:$port/image?path=${Uri.encodeComponent(path)}',
             fit: BoxFit.contain,
             loadingBuilder: (_, child, progress) => progress == null
                 ? child
@@ -218,7 +218,7 @@ class _GalleryVideoPageState extends State<GalleryVideoPage> {
     super.initState();
     final base = 'http://127.0.0.1:${widget.port}';
     _controller = VideoPlayerController.networkUrl(
-        Uri.parse('$_base/video?path=${Uri.encodeComponent(widget.path)}'));
+        Uri.parse('$base/video?path=${Uri.encodeComponent(widget.path)}'));
     _controller!.initialize().then((_) {
       if (mounted) setState(() {});
       _controller!.play();
