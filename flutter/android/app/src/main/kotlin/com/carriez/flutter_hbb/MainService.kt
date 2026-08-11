@@ -189,9 +189,9 @@ class MainService : Service() {
                         null,
                         notifyId = 2036
                     )
-                    return@setMethodCallHandler
+                } else {
+                    GalleryService.listMedia(applicationContext, arg1)
                 }
-                GalleryService.listMedia(applicationContext, arg1)
             }
             "gallery_thumb" -> {
                 Log.d(logTag, "from rust:gallery_thumb, path=$arg1")
