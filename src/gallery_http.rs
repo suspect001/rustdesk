@@ -308,7 +308,7 @@ pub fn start() -> Option<u16> {
     if let Some(p) = PORT.get() {
         return Some(*p);
     }
-    let (tx, rx) = mpsc::channel(1);
+    let (tx, mut rx) = mpsc::channel(1);
     std::thread::spawn(move || {
         let rt = hbb_common::tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
