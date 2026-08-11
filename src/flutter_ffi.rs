@@ -39,6 +39,17 @@ lazy_static::lazy_static! {
 
 fn initialize(app_dir: &str, custom_client_config: &str) {
     flutter::async_tasks::start_flutter_async_runner();
+    #[cfg(target_os = "android")]
+    {
+        // Route gallery data produced on the controlled side back to the
+        // connected controllers (scrap cannot reference this crate).
+        use std::sync::Arc;
+        scrap::android::set_gallery_sender(Arc::new(
+            |msg: hbb_common::message_proto::Message| {
+                crate::server::connection::broadcast_gallery_data(msg);
+            },
+        ));
+    }
     // `APP_DIR` is set in `main_get_data_dir_ios()` on iOS.
     #[cfg(not(target_os = "ios"))]
     {
@@ -2042,7 +2053,7 @@ pub fn session_start_gallery(session_id: SessionID) -> SyncReturn<u32> {
         let sender = session.sender.clone();
         crate::gallery_http::set_session_sender(Arc::new(move |msg: hbb_common::message_proto::Message| {
             if let Some(s) = sender.read().unwrap().as_ref() {
-                let _ = s.send(Data::Message(msg));
+                let _ = s.send(crate::ipc::Data::Message(msg));
             }
         }));
     }

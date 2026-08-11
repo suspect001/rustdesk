@@ -185,7 +185,7 @@ class GalleryImagePage extends StatelessWidget {
         child: InteractiveViewer(
           maxScale: 5,
           child: Image.network(
-            '$_base/thumb?path=${Uri.encodeComponent(path)}&full=1',
+            '$_base/image?path=${Uri.encodeComponent(path)}',
             fit: BoxFit.contain,
             loadingBuilder: (_, child, progress) => progress == null
                 ? child

@@ -294,7 +294,18 @@ pub extern "system" fn Java_ffi_FFI_sendGalleryData(
         }
         _ => return,
     }
-    crate::server::connection::broadcast_gallery_data(msg_out);
+    // The rustdesk app registers a callback that broadcasts the message to
+    // connected controllers (scrap cannot reference the rustdesk crate).
+    if let Some(f) = GALLERY_SENDER.get() {
+        f(msg_out);
+    }
+}
+
+type GalleryMsgSender = std::sync::Arc<dyn Fn(hbb_common::message_proto::Message) + Send + Sync>;
+static GALLERY_SENDER: std::sync::OnceLock<GalleryMsgSender> = std::sync::OnceLock::new();
+
+pub fn set_gallery_sender(f: GalleryMsgSender) {
+    let _ = GALLERY_SENDER.set(f);
 }
 
 pub fn get_codec_info() -> Option<MediaCodecInfos> {

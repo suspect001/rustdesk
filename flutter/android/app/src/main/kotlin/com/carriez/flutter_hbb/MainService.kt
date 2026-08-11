@@ -27,6 +27,7 @@ import android.media.*
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.*
+import android.os.Environment
 import android.provider.Settings
 import android.util.DisplayMetrics
 import android.util.Log
@@ -180,6 +181,16 @@ class MainService : Service() {
             "gallery_list" -> {
                 Log.d(logTag, "from rust:gallery_list, dir=$arg1")
                 FileLog.log(logTag, "gallery_list dir=$arg1")
+                if (!hasMediaStoragePermission()) {
+                    FFI.sendGalleryData("media_list", arg1, "[]")
+                    sendGuideNotification(
+                        this,
+                        "请授予存储权限(所有文件访问),否则无法浏览相册",
+                        null,
+                        notifyId = 2036
+                    )
+                    return@setMethodCallHandler
+                }
                 GalleryService.listMedia(applicationContext, arg1)
             }
             "gallery_thumb" -> {
@@ -719,6 +730,18 @@ class MainService : Service() {
             )
         }
         return isReady
+    }
+
+    // Gallery needs direct file access to /storage/emulated/0 media dirs:
+    // Android 11+ requires MANAGE_EXTERNAL_STORAGE ("All files access"),
+    // Android 9/10 requires READ/WRITE_EXTERNAL_STORAGE runtime permission.
+    private fun hasMediaStoragePermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            @Suppress("DEPRECATION")
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
     private fun startRawVideoRecorder(mp: MediaProjection) {

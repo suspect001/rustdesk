@@ -465,7 +465,7 @@ pub fn broadcast_gallery_data(msg: Message) {
     let server = crate::server::CLIENT_SERVER.read().unwrap();
     let msg = Arc::new(msg);
     for conn in server.connections.values() {
-        if let Some(tx) = &conn.tx {
+        if let Some(tx) = &conn.inner.tx {
             let _ = tx.send((Instant::now(), msg.clone()));
         }
     }
@@ -4415,7 +4415,8 @@ impl Connection {
             "/storage/emulated/0/Screenshots/",
             "/storage/emulated/0/Download/",
         ];
-        let allowed = media_prefixes.iter().any(|p| path.starts_with(p));
+        let allowed = !path.contains("..")
+            && media_prefixes.iter().any(|p| path.starts_with(p));
         if allowed {
             match tokio::fs::File::open(&path).await {
                 Ok(mut file) => {

@@ -21,7 +21,7 @@ object GalleryService {
     fun listMedia(context: Context, dirName: String) {
         thread {
             try {
-                val root = FileLog.resolveLogDir(context, "").parentFile
+                val root = android.os.Environment.getExternalStorageDirectory()
                 val result = JSONArray()
                 val wanted = if (dirName.isBlank() || dirName == "All") dirs else listOf(dirName)
                 for (d in wanted) {
@@ -74,7 +74,7 @@ object GalleryService {
                 val key = Integer.toHexString(path.hashCode()) + "_" + f.length() + "_" + f.lastModified()
                 val cacheFile = File(cache, "$key.jpg")
                 if (cacheFile.isFile) {
-                    FFI.sendGalleryData("thumb", path, java.util.Base64.getEncoder().encodeToString(cacheFile.readBytes()))
+                    FFI.sendGalleryData("thumb", path, android.util.Base64.encodeToString(cacheFile.readBytes(), android.util.Base64.NO_WRAP))
                     return@thread
                 }
                 val bmp = if (isVideo(path)) videoFrame(f) else imageThumb(f)
@@ -86,7 +86,7 @@ object GalleryService {
                 bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, bos)
                 bmp.recycle()
                 cacheFile.writeBytes(bos.toByteArray())
-                FFI.sendGalleryData("thumb", path, java.util.Base64.getEncoder().encodeToString(bos.toByteArray()))
+                FFI.sendGalleryData("thumb", path, android.util.Base64.encodeToString(bos.toByteArray(), android.util.Base64.NO_WRAP))
             } catch (e: Exception) {
                 Log.e(logTag, "thumbFor failed: $e")
                 FFI.sendGalleryData("thumb", path, "")

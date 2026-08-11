@@ -8,13 +8,11 @@ use hbb_common::tokio::io::{AsyncReadExt, AsyncWriteExt};
 use hbb_common::tokio::net::{TcpListener, TcpStream};
 use hbb_common::tokio::sync::mpsc;
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 pub type GallerySessionSender = Arc<dyn Fn(Message) + Send + Sync>;
 
-static SESSION_SENDER: OnceLock<GallerySessionSender> = OnceLock::new();
+static SESSION_SENDER: Mutex<Option<GallerySessionSender>> = Mutex::new(None);
 static WAITERS: OnceLock<Mutex<HashMap<String, Vec<mpsc::UnboundedSender<Message>>>>> =
     OnceLock::new();
 
@@ -22,8 +20,9 @@ fn waiters() -> &'static Mutex<HashMap<String, Vec<mpsc::UnboundedSender<Message
     WAITERS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+// Update the session sender (latest session wins).
 pub fn set_session_sender(f: GallerySessionSender) {
-    let _ = SESSION_SENDER.set(f);
+    *SESSION_SENDER.lock().unwrap() = Some(f);
 }
 
 // Called from the controlling io_loop when a gallery response arrives.
@@ -36,17 +35,16 @@ pub fn on_gallery_data(key: &str, msg: Message) {
     }
 }
 
-fn send_to_peer(msg: Message) {
-    if let Some(f) = SESSION_SENDER.get() {
-        f(msg);
-    }
-}
-
-async fn wait_for(key: String, timeout_ms: u64) -> Option<Message> {
+// Register a waiter first, THEN send the request, so a fast response cannot
+// be missed. Returns the response message or None on timeout.
+async fn request(key: String, msg: Message, timeout_ms: u64) -> Option<Message> {
     let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
     {
         let mut map = waiters().lock().unwrap();
         map.entry(key.clone()).or_default().push(tx);
+    }
+    if let Some(f) = SESSION_SENDER.lock().unwrap().as_ref() {
+        f(msg);
     }
     match hbb_common::tokio::time::timeout(
         std::time::Duration::from_millis(timeout_ms),
@@ -54,17 +52,10 @@ async fn wait_for(key: String, timeout_ms: u64) -> Option<Message> {
     )
     .await
     {
-        Ok(Some(msg)) => {
-            let _ = msg;
-            Some(msg)
-        }
+        Ok(Some(msg)) => Some(msg),
         _ => {
-            // remove stale waiter
             let mut map = waiters().lock().unwrap();
-            if let Some(v) = map.get_mut(&key) {
-                v.retain(|_| false);
-                map.remove(&key);
-            }
+            map.remove(&key);
             None
         }
     }
@@ -144,7 +135,6 @@ async fn handle_connection(mut stream: TcpStream) {
     }
     let query = parse_query(path);
     let route = path.split('?').next().unwrap_or("").to_string();
-    // Range header
     let mut range: Option<(u64, u64)> = None;
     for line in lines {
         if line.to_lowercase().starts_with("range:") {
@@ -173,9 +163,8 @@ async fn handle_connection(mut stream: TcpStream) {
             req.set_media_list_request(r);
             let mut msg_out = Message::new();
             msg_out.set_misc(req);
-            send_to_peer(msg_out);
             let key = format!("list:{}", dir);
-            match wait_for(key, 30_000).await {
+            match request(key, msg_out, 30_000).await {
                 Some(m) => {
                     if let Some(d) = m.media_list_data.take() {
                         Some(("200 OK", "application/json".to_string(), d.json.into_bytes(), vec![]))
@@ -194,9 +183,8 @@ async fn handle_connection(mut stream: TcpStream) {
             req.set_thumb_request(r);
             let mut msg_out = Message::new();
             msg_out.set_misc(req);
-            send_to_peer(msg_out);
             let key = format!("thumb:{}", path);
-            match wait_for(key, 15_000).await {
+            match request(key, msg_out, 15_000).await {
                 Some(m) => {
                     if let Some(d) = m.thumb_data.take() {
                         Some(("200 OK", "image/jpeg".to_string(), d.data, vec![]))
@@ -205,6 +193,53 @@ async fn handle_connection(mut stream: TcpStream) {
                     }
                 }
                 None => None,
+            }
+        }
+        "/image" => {
+            // Full-size image: fetch consecutive 1MB ranges until EOF and
+            // concatenate. (Thumbnails are only 512px; the viewer needs the
+            // real image.)
+            let path = query.get("path").cloned().unwrap_or_default();
+            let mut body: Vec<u8> = Vec::new();
+            let mut offset: u64 = 0;
+            let mut failed = false;
+            for _ in 0..64 {
+                let mut req = Misc::new();
+                let mut r = FileRangeRequest::new();
+                r.set_path(path.clone());
+                r.set_offset(offset);
+                r.set_length(1024 * 1024);
+                req.set_file_range_request(r);
+                let mut msg_out = Message::new();
+                msg_out.set_misc(req);
+                let key = format!("range:{}:{}", path, offset);
+                match request(key, msg_out, 20_000).await {
+                    Some(m) => {
+                        if let Some(d) = m.file_range_data.take() {
+                            if d.data.is_empty() {
+                                failed = true;
+                                break;
+                            }
+                            body.extend_from_slice(&d.data);
+                            offset += d.data.len() as u64;
+                            if d.eof {
+                                break;
+                            }
+                        } else {
+                            failed = true;
+                            break;
+                        }
+                    }
+                    None => {
+                        failed = true;
+                        break;
+                    }
+                }
+            }
+            if failed || body.is_empty() {
+                None
+            } else {
+                Some(("200 OK", "image/jpeg".to_string(), body, vec![]))
             }
         }
         "/video" => {
@@ -219,20 +254,24 @@ async fn handle_connection(mut stream: TcpStream) {
             req.set_file_range_request(r);
             let mut msg_out = Message::new();
             msg_out.set_misc(req);
-            send_to_peer(msg_out);
             let key = format!("range:{}:{}", path, start);
-            match wait_for(key, 20_000).await {
+            match request(key, msg_out, 20_000).await {
                 Some(m) => {
                     if let Some(d) = m.file_range_data.take() {
                         let eof = d.eof;
                         let data = d.data;
-                        let total = start + data.len() as u64;
-                        let mut extra = vec![];
-                        extra.push(("Content-Range", format!("bytes {}-{}/{}", start, total - 1, if eof { total.to_string() } else { "*".to_string() })));
-                        if range.is_some() {
-                            Some(("206 Partial Content", "video/mp4".to_string(), data, extra))
+                        if data.is_empty() {
+                            None
                         } else {
-                            Some(("200 OK", "video/mp4".to_string(), data, extra))
+                            let end_byte = start + data.len() as u64 - 1;
+                            let total = if eof { (end_byte + 1).to_string() } else { "*".to_string() };
+                            let mut extra = vec![];
+                            extra.push(("Content-Range", format!("bytes {}-{}/{}", start, end_byte, total)));
+                            if range.is_some() {
+                                Some(("206 Partial Content", "video/mp4".to_string(), data, extra))
+                            } else {
+                                Some(("200 OK", "video/mp4".to_string(), data, extra))
+                            }
                         }
                     } else {
                         None
@@ -260,7 +299,7 @@ async fn handle_connection(mut stream: TcpStream) {
 
 // Start the HTTP server on a random localhost port. Idempotent.
 pub fn start() -> Option<u16> {
-    static PORT: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+    static PORT: OnceLock<u16> = OnceLock::new();
     if let Some(p) = PORT.get() {
         return Some(*p);
     }
@@ -279,7 +318,7 @@ pub fn start() -> Option<u16> {
                 Ok(a) => a.port(),
                 Err(_) => return,
             };
-            let _ = tx.send(port);
+            let _ = tx.send(port).await;
             loop {
                 match listener.accept().await {
                     Ok((stream, _)) => {
