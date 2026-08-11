@@ -266,7 +266,7 @@ pub extern "system" fn Java_ffi_FFI_setCodecInfo(env: JNIEnv, _class: JClass, in
 
 #[no_mangle]
 pub extern "system" fn Java_ffi_FFI_sendGalleryData(
-    env: JNIEnv,
+    mut env: JNIEnv,
     _class: JClass,
     kind: JString,
     path: JString,
