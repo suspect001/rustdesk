@@ -160,10 +160,13 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           components: "rustfmt"
 
+      - name: Export submodule hash for cache key
+        run: echo "HBB_COMMON_SHA=$(git rev-parse HEAD:libs/hbb_common)" >> $GITHUB_ENV
+
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           prefix-key: rustdesk-lib-cache-android
-          key: ${{ matrix.job.target }}
+          key: ${{ matrix.job.target }}-${{ env.HBB_COMMON_SHA }}
 
       - name: Build rustdesk lib
         env:
