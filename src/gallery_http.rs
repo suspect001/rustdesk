@@ -337,8 +337,8 @@ pub fn start() -> Option<u16> {
         });
     });
     let port = match rx.blocking_recv() {
-        Ok(p) => p,
-        Err(_) => return None,
+        Some(p) => p,
+        None => return None,
     };
     let _ = PORT.set(port);
     PORT.get().copied()
