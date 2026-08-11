@@ -459,6 +459,18 @@ const SEND_TIMEOUT_VIDEO: u64 = 12_000;
 const SEND_TIMEOUT_OTHER: u64 = SEND_TIMEOUT_VIDEO * 10;
 const SESSION_TIMEOUT: Duration = Duration::from_secs(30);
 
+// Broadcast a gallery response message (media list / thumb / file range)
+// back to all connected controllers.
+pub fn broadcast_gallery_data(msg: Message) {
+    let server = crate::server::CLIENT_SERVER.read().unwrap();
+    let msg = Arc::new(msg);
+    for conn in server.connections.values() {
+        if let Some(tx) = &conn.tx {
+            let _ = tx.send((Instant::now(), msg.clone()));
+        }
+    }
+}
+
 impl Connection {
     pub async fn start(
         addr: SocketAddr,

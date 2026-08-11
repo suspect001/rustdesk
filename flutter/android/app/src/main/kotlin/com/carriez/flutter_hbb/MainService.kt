@@ -177,6 +177,15 @@ class MainService : Service() {
                 Log.d(logTag, "from rust:stop_capture")
                 stopCapture()
             }
+            "gallery_list" -> {
+                Log.d(logTag, "from rust:gallery_list, dir=$arg1")
+                FileLog.log(logTag, "gallery_list dir=$arg1")
+                GalleryService.listMedia(applicationContext, arg1)
+            }
+            "gallery_thumb" -> {
+                Log.d(logTag, "from rust:gallery_thumb, path=$arg1")
+                GalleryService.thumbFor(applicationContext, arg1)
+            }
             "screen_off" -> {
                 // Triggered by the controlling side: turn off (and lock) the
                 // screen via the accessibility service.
