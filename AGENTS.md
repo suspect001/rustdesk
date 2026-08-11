@@ -61,6 +61,22 @@
 * Do not make formatting-only changes.
 * Keep naming/style consistent with nearby code.
 
+## API Usage Policy
+
+* Before using ANY API (framework, library, Android SDK, protobuf codegen,
+  crate, Dart package, etc.), verify its official documentation / source and
+  confirm the exact usage: signature, parameter types, return type, and the
+  version you are building against.
+* Do NOT guess, assume, or copy usage patterns from memory or from other
+  versions; APIs change between versions (e.g. generated code style can
+  differ between codegen versions). When in doubt, check the actual
+  generated code / installed version's source.
+* If an API cannot be verified, do not use it — find the documented
+  alternative or ask the user.
+* Cite the official source in the commit message or code comment when the
+  API is non-obvious (e.g. "protobuf 3.7 generates pub scalar fields, no
+  setters").
+
 ## Build Policy
 
 * NEVER trigger a build (GitHub Actions workflow dispatch, push-triggered
