@@ -61,6 +61,17 @@
 * Do not make formatting-only changes.
 * Keep naming/style consistent with nearby code.
 
+## Build Policy
+
+* NEVER trigger a build (GitHub Actions workflow dispatch, push-triggered
+  build, or any other automated build) on your own initiative.
+* Builds are started ONLY when the user explicitly asks to build.
+* Do not rely on or keep running automatic retry/watchdog mechanisms that
+  trigger builds without user approval; if such a mechanism exists, it must
+  ask the user first.
+* Code changes are committed and pushed without building unless the user
+  requests a build.
+
 ### Be minimally invasive
 
 * Prefer purely additive changes: layer new (`#[cfg]`-gated) blocks or new functions around existing code instead of restructuring it. The ideal diff for a fix adds lines and modifies/deletes none.
