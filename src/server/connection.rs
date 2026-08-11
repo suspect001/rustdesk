@@ -465,7 +465,7 @@ pub fn broadcast_gallery_data(msg: Message) {
     let server = crate::server::CLIENT_SERVER.read().unwrap();
     let msg = Arc::new(msg);
     for conn in server.connections.values() {
-        if let Some(tx) = &conn.inner.tx {
+        if let Some(tx) = &conn.tx {
             let _ = tx.send((Instant::now(), msg.clone()));
         }
     }

@@ -167,8 +167,9 @@ async fn handle_connection(mut stream: TcpStream) {
             let key = format!("list:{}", dir);
             match request(key, msg_out, 30_000).await {
                 Some(m) => {
-                    if let Some(d) = m.media_list_data.take() {
-                        Some(("200 OK", "application/json".to_string(), d.json.into_bytes(), vec![]))
+                    if m.has_media_list_data() {
+                        let d = m.take_media_list_data();
+                        Some(("200 OK".to_string(), "application/json".to_string(), d.json.into_bytes(), vec![]))
                     } else {
                         None
                     }
@@ -187,8 +188,9 @@ async fn handle_connection(mut stream: TcpStream) {
             let key = format!("thumb:{}", path);
             match request(key, msg_out, 15_000).await {
                 Some(m) => {
-                    if let Some(d) = m.thumb_data.take() {
-                        Some(("200 OK", "image/jpeg".to_string(), d.data, vec![]))
+                    if m.has_thumb_data() {
+                        let d = m.take_thumb_data();
+                        Some(("200 OK".to_string(), "image/jpeg".to_string(), d.data.to_vec(), vec![]))
                     } else {
                         None
                     }
@@ -216,7 +218,8 @@ async fn handle_connection(mut stream: TcpStream) {
                 let key = format!("range:{}:{}", path, offset);
                 match request(key, msg_out, 20_000).await {
                     Some(m) => {
-                        if let Some(d) = m.file_range_data.take() {
+                        if m.has_file_range_data() {
+                            let d = m.take_file_range_data();
                             if d.data.is_empty() {
                                 failed = true;
                                 break;
@@ -240,7 +243,7 @@ async fn handle_connection(mut stream: TcpStream) {
             if failed || body.is_empty() {
                 None
             } else {
-                Some(("200 OK", "image/jpeg".to_string(), body, vec![]))
+                Some(("200 OK".to_string(), "image/jpeg".to_string(), body, vec![]))
             }
         }
         "/video" => {
@@ -258,9 +261,10 @@ async fn handle_connection(mut stream: TcpStream) {
             let key = format!("range:{}:{}", path, start);
             match request(key, msg_out, 20_000).await {
                 Some(m) => {
-                    if let Some(d) = m.file_range_data.take() {
+                    if m.has_file_range_data() {
+                        let d = m.take_file_range_data();
                         let eof = d.eof;
-                        let data = d.data;
+                        let data = d.data.to_vec();
                         if data.is_empty() {
                             None
                         } else {
@@ -269,9 +273,9 @@ async fn handle_connection(mut stream: TcpStream) {
                             let mut extra = vec![];
                             extra.push(("Content-Range", format!("bytes {}-{}/{}", start, end_byte, total)));
                             if range.is_some() {
-                                Some(("206 Partial Content", "video/mp4".to_string(), data, extra))
+                                Some(("206 Partial Content".to_string(), "video/mp4".to_string(), data, extra))
                             } else {
-                                Some(("200 OK", "video/mp4".to_string(), data, extra))
+                                Some(("200 OK".to_string(), "video/mp4".to_string(), data, extra))
                             }
                         }
                     } else {
