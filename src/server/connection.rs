@@ -4444,10 +4444,10 @@ impl Connection {
             log::info!("gallery path not allowed: {path}");
         }
         let mut data_msg = FileRangeData::new();
-        data_msg.set_path(path);
-        data_msg.set_offset(offset);
-        data_msg.set_data(data);
-        data_msg.set_eof(eof);
+        data_msg.path = path;
+        data_msg.offset = offset;
+        data_msg.data = data.into();
+        data_msg.eof = eof;
         let mut msg_out = Message::new();
         msg_out.set_file_range_data(data_msg);
         self.send(msg_out).await;

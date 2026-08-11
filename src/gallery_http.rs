@@ -159,7 +159,7 @@ async fn handle_connection(mut stream: TcpStream) {
             let dir = query.get("dir").cloned().unwrap_or_default();
             let mut req = Misc::new();
             let mut r = MediaListRequest::new();
-            r.set_dir(dir.clone());
+            r.dir = dir.clone();
             req.set_media_list_request(r);
             let mut msg_out = Message::new();
             msg_out.set_misc(req);
@@ -179,7 +179,7 @@ async fn handle_connection(mut stream: TcpStream) {
             let path = query.get("path").cloned().unwrap_or_default();
             let mut req = Misc::new();
             let mut r = ThumbRequest::new();
-            r.set_path(path.clone());
+            r.path = path.clone();
             req.set_thumb_request(r);
             let mut msg_out = Message::new();
             msg_out.set_misc(req);
@@ -206,9 +206,9 @@ async fn handle_connection(mut stream: TcpStream) {
             for _ in 0..64 {
                 let mut req = Misc::new();
                 let mut r = FileRangeRequest::new();
-                r.set_path(path.clone());
-                r.set_offset(offset);
-                r.set_length(1024 * 1024);
+                r.path = path.clone();
+                r.offset = offset;
+                r.length = 1024 * 1024;
                 req.set_file_range_request(r);
                 let mut msg_out = Message::new();
                 msg_out.set_misc(req);
@@ -248,9 +248,9 @@ async fn handle_connection(mut stream: TcpStream) {
             let length = (end - start + 1).min(1024 * 1024) as u32;
             let mut req = Misc::new();
             let mut r = FileRangeRequest::new();
-            r.set_path(path.clone());
-            r.set_offset(start);
-            r.set_length(length);
+            r.path = path.clone();
+            r.offset = start;
+            r.length = length;
             req.set_file_range_request(r);
             let mut msg_out = Message::new();
             msg_out.set_misc(req);

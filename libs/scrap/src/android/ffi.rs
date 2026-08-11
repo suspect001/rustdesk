@@ -280,15 +280,15 @@ pub extern "system" fn Java_ffi_FFI_sendGalleryData(
     match kind.as_str() {
         "media_list" => {
             let mut data = MediaListData::new();
-            data.set_dir(path);
-            data.set_json(payload);
+            data.dir = path;
+            data.json = payload;
             msg_out.set_media_list_data(data);
         }
         "thumb" => {
             let mut data = ThumbData::new();
-            data.set_path(path);
+            data.path = path;
             if let Ok(bytes) = hbb_common::base64::decode(&payload) {
-                data.set_data(bytes);
+                data.data = bytes.into();
             }
             msg_out.set_thumb_data(data);
         }
