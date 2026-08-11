@@ -166,7 +166,7 @@ async fn handle_connection(mut stream: TcpStream) {
             msg_out.set_misc(req);
             let key = format!("list:{}", dir);
             match request(key, msg_out, 30_000).await {
-                Some(m) => {
+                Some(mut m) => {
                     if m.has_media_list_data() {
                         let d = m.take_media_list_data();
                         Some(("200 OK".to_string(), "application/json".to_string(), d.json.into_bytes(), vec![]))
@@ -187,7 +187,7 @@ async fn handle_connection(mut stream: TcpStream) {
             msg_out.set_misc(req);
             let key = format!("thumb:{}", path);
             match request(key, msg_out, 15_000).await {
-                Some(m) => {
+                Some(mut m) => {
                     if m.has_thumb_data() {
                         let d = m.take_thumb_data();
                         Some(("200 OK".to_string(), "image/jpeg".to_string(), d.data.to_vec(), vec![]))
@@ -217,7 +217,7 @@ async fn handle_connection(mut stream: TcpStream) {
                 msg_out.set_misc(req);
                 let key = format!("range:{}:{}", path, offset);
                 match request(key, msg_out, 20_000).await {
-                    Some(m) => {
+                    Some(mut m) => {
                         if m.has_file_range_data() {
                             let d = m.take_file_range_data();
                             if d.data.is_empty() {
@@ -260,7 +260,7 @@ async fn handle_connection(mut stream: TcpStream) {
             msg_out.set_misc(req);
             let key = format!("range:{}:{}", path, start);
             match request(key, msg_out, 20_000).await {
-                Some(m) => {
+                Some(mut m) => {
                     if m.has_file_range_data() {
                         let d = m.take_file_range_data();
                         let eof = d.eof;
@@ -336,6 +336,10 @@ pub fn start() -> Option<u16> {
             }
         });
     });
-    PORT.set(rx.blocking_recv().ok()?).ok();
+    let port = match rx.blocking_recv() {
+        Ok(p) => p,
+        Err(_) => return None,
+    };
+    let _ = PORT.set(port);
     PORT.get().copied()
 }
