@@ -7,6 +7,7 @@ use hbb_common::message_proto::*;
 use hbb_common::tokio::io::{AsyncReadExt, AsyncWriteExt};
 use hbb_common::tokio::net::{TcpListener, TcpStream};
 use hbb_common::tokio::sync::mpsc;
+use hbb_common::log;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -120,8 +121,8 @@ async fn handle_connection(mut stream: TcpStream) {
         Ok(n) if n > 0 => n,
         _ => return,
     };
-    let request = String::from_utf8_lossy(&buf[..n]).to_string();
-    let mut lines = request.lines();
+    let request_head = String::from_utf8_lossy(&buf[..n]).to_string();
+    let mut lines = request_head.lines();
     let request_line = match lines.next() {
         Some(l) => l.to_string(),
         None => return,

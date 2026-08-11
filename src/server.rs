@@ -68,7 +68,7 @@ pub mod input_service {
     pub const NAME_WINDOW_FOCUS: &'static str = "";
 }
 
-mod connection;
+pub(crate) mod connection;
 mod login_failure_check;
 pub mod display_service;
 #[cfg(windows)]

@@ -2053,7 +2053,7 @@ pub fn session_start_gallery(session_id: SessionID) -> SyncReturn<u32> {
         let sender = session.sender.clone();
         crate::gallery_http::set_session_sender(Arc::new(move |msg: hbb_common::message_proto::Message| {
             if let Some(s) = sender.read().unwrap().as_ref() {
-                let _ = s.send(crate::ipc::Data::Message(msg));
+                let _ = s.send(crate::client::Data::Message(msg));
             }
         }));
     }

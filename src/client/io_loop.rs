@@ -1782,39 +1782,39 @@ impl<T: InvokeUiSession> Remote<T> {
                         _ => {}
                     }
                 }
+                Some(message::Union::MediaListData(d)) => {
+                    #[cfg(feature = "flutter")]
+                    {
+                        let key = format!("list:{}", d.dir);
+                        let mut msg_out = Message::new();
+                        msg_out.set_media_list_data(d);
+                        crate::gallery_http::on_gallery_data(&key, msg_out);
+                    }
+                }
+                Some(message::Union::ThumbData(d)) => {
+                    #[cfg(feature = "flutter")]
+                    {
+                        let key = format!("thumb:{}", d.path);
+                        let mut msg_out = Message::new();
+                        msg_out.set_thumb_data(d);
+                        crate::gallery_http::on_gallery_data(&key, msg_out);
+                    }
+                }
+                Some(message::Union::FileRangeData(d)) => {
+                    #[cfg(feature = "flutter")]
+                    {
+                        let key = format!("range:{}:{}", d.path, d.offset);
+                        let mut msg_out = Message::new();
+                        msg_out.set_file_range_data(d);
+                        crate::gallery_http::on_gallery_data(&key, msg_out);
+                    }
+                }
                 Some(message::Union::Misc(misc)) => match misc.union {
                     Some(misc::Union::AudioFormat(f)) => {
                         self.audio_sender.send(MediaData::AudioFormat(f)).ok();
                     }
                     Some(misc::Union::ChatMessage(c)) => {
                         self.handler.new_message(c.text);
-                    }
-                    Some(misc::Union::MediaListData(d)) => {
-                        #[cfg(feature = "flutter")]
-                        {
-                            let key = format!("list:{}", d.dir);
-                            let mut msg_out = Message::new();
-                            msg_out.set_media_list_data(d);
-                            crate::gallery_http::on_gallery_data(&key, msg_out);
-                        }
-                    }
-                    Some(misc::Union::ThumbData(d)) => {
-                        #[cfg(feature = "flutter")]
-                        {
-                            let key = format!("thumb:{}", d.path);
-                            let mut msg_out = Message::new();
-                            msg_out.set_thumb_data(d);
-                            crate::gallery_http::on_gallery_data(&key, msg_out);
-                        }
-                    }
-                    Some(misc::Union::FileRangeData(d)) => {
-                        #[cfg(feature = "flutter")]
-                        {
-                            let key = format!("range:{}:{}", d.path, d.offset);
-                            let mut msg_out = Message::new();
-                            msg_out.set_file_range_data(d);
-                            crate::gallery_http::on_gallery_data(&key, msg_out);
-                        }
                     }
                     Some(misc::Union::PermissionInfo(p)) => {
                         log::info!("Change permission {:?} -> {}", p.permission, p.enabled);
