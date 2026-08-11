@@ -8,6 +8,7 @@ import 'package:flutter_hbb/common/shared_state.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/login.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/mobile/pages/gallery_page.dart';
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'package:flutter_hbb/models/model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
@@ -557,6 +558,29 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
           onPressed: () {
             bind.sessionScreenOff(sessionId: sessionId);
             showToast(translate('Screen off command sent'));
+          }),
+    );
+  }
+  // gallery: browse the Android controlled device's photo gallery.
+  if (isDefaultConn && pi.platform == kPeerPlatformAndroid) {
+    v.add(
+      TTextMenu(
+          child: Text(translate('Gallery')),
+          onPressed: () async {
+            try {
+              final port = await bind.sessionStartGallery(sessionId: sessionId);
+              if (port > 0) {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => GalleryPage(id: id, port: port)),
+                );
+              } else {
+                showToast(translate('Failed'));
+              }
+            } catch (e) {
+              showToast(translate('Failed'));
+            }
           }),
     );
   }
