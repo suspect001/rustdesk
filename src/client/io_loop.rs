@@ -1789,6 +1789,30 @@ impl<T: InvokeUiSession> Remote<T> {
                     Some(misc::Union::ChatMessage(c)) => {
                         self.handler.new_message(c.text);
                     }
+                    Some(misc::Union::MediaListData(d)) => {
+                        #[cfg(feature = "flutter")]
+                        {
+                            let mut msg_out = Message::new();
+                            msg_out.set_misc(misc.clone());
+                            crate::gallery_http::on_gallery_data(&format!("list:{}", d.dir), msg_out);
+                        }
+                    }
+                    Some(misc::Union::ThumbData(d)) => {
+                        #[cfg(feature = "flutter")]
+                        {
+                            let mut msg_out = Message::new();
+                            msg_out.set_misc(misc.clone());
+                            crate::gallery_http::on_gallery_data(&format!("thumb:{}", d.path), msg_out);
+                        }
+                    }
+                    Some(misc::Union::FileRangeData(d)) => {
+                        #[cfg(feature = "flutter")]
+                        {
+                            let mut msg_out = Message::new();
+                            msg_out.set_misc(misc.clone());
+                            crate::gallery_http::on_gallery_data(&format!("range:{}:{}", d.path, d.offset), msg_out);
+                        }
+                    }
                     Some(misc::Union::PermissionInfo(p)) => {
                         log::info!("Change permission {:?} -> {}", p.permission, p.enabled);
                         // https://github.com/rustdesk/rustdesk/issues/3703#issuecomment-1474734754

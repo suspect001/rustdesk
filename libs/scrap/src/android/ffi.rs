@@ -265,21 +265,28 @@ pub extern "system" fn Java_ffi_FFI_setCodecInfo(env: JNIEnv, _class: JClass, in
 }
 
 #[no_mangle]
-pub extern "system" fn Java_ffi_FFI_sendGalleryData(env: JNIEnv, _class: JClass, kind: JString, payload: JString) {
+pub extern "system" fn Java_ffi_FFI_sendGalleryData(
+    env: JNIEnv,
+    _class: JClass,
+    kind: JString,
+    path: JString,
+    payload: JString,
+) {
     use hbb_common::message_proto::*;
     let kind = env.get_string(&kind).map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let path = env.get_string(&path).map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
     let payload = env.get_string(&payload).map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
     let mut msg_out = Message::new();
     match kind.as_str() {
         "media_list" => {
             let mut data = MediaListData::new();
-            data.set_dir("".to_owned());
+            data.set_dir(path);
             data.set_json(payload);
             msg_out.set_media_list_data(data);
         }
         "thumb" => {
             let mut data = ThumbData::new();
-            data.set_path("".to_owned());
+            data.set_path(path);
             if let Ok(bytes) = hbb_common::base64::decode(&payload) {
                 data.set_data(bytes);
             }

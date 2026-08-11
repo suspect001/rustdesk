@@ -52,11 +52,11 @@ object GalleryService {
                 for (i in 0 until result.length()) arr.add(result.getJSONObject(i))
                 arr.sortByDescending { it.optLong("mtime") }
                 val json = JSONArray().apply { arr.forEach { put(it) } }.toString()
-                FFI.sendGalleryData("media_list", json)
+                FFI.sendGalleryData("media_list", dirName, json)
                 FileLog.log(logTag, "listMedia: ${arr.size} files in $wanted")
             } catch (e: Exception) {
                 Log.e(logTag, "listMedia failed: $e")
-                FFI.sendGalleryData("media_list", "[]")
+                FFI.sendGalleryData("media_list", dirName, "[]")
             }
         }
     }
@@ -66,7 +66,7 @@ object GalleryService {
             try {
                 val f = File(path)
                 if (!f.isFile) {
-                    FFI.sendGalleryData("thumb", "")
+                    FFI.sendGalleryData("thumb", path, "")
                     return@thread
                 }
                 val cache = File(context.filesDir, "thumbs")
@@ -74,22 +74,22 @@ object GalleryService {
                 val key = Integer.toHexString(path.hashCode()) + "_" + f.length() + "_" + f.lastModified()
                 val cacheFile = File(cache, "$key.jpg")
                 if (cacheFile.isFile) {
-                    FFI.sendGalleryData("thumb", java.util.Base64.getEncoder().encodeToString(cacheFile.readBytes()))
+                    FFI.sendGalleryData("thumb", path, java.util.Base64.getEncoder().encodeToString(cacheFile.readBytes()))
                     return@thread
                 }
                 val bmp = if (isVideo(path)) videoFrame(f) else imageThumb(f)
                 if (bmp == null) {
-                    FFI.sendGalleryData("thumb", "")
+                    FFI.sendGalleryData("thumb", path, "")
                     return@thread
                 }
                 val bos = java.io.ByteArrayOutputStream()
                 bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, bos)
                 bmp.recycle()
                 cacheFile.writeBytes(bos.toByteArray())
-                FFI.sendGalleryData("thumb", java.util.Base64.getEncoder().encodeToString(bos.toByteArray()))
+                FFI.sendGalleryData("thumb", path, java.util.Base64.getEncoder().encodeToString(bos.toByteArray()))
             } catch (e: Exception) {
                 Log.e(logTag, "thumbFor failed: $e")
-                FFI.sendGalleryData("thumb", "")
+                FFI.sendGalleryData("thumb", path, "")
             }
         }
     }

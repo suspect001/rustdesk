@@ -2034,6 +2034,22 @@ pub fn session_auto_unlock(session_id: SessionID) {
     }
 }
 
+// Start the gallery HTTP proxy on the controlling side and return the local
+// port. Subsequent calls return the same port.
+pub fn session_start_gallery(session_id: SessionID) -> SyncReturn<u32> {
+    use std::sync::Arc;
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        let sender = session.sender.clone();
+        crate::gallery_http::set_session_sender(Arc::new(move |msg: hbb_common::message_proto::Message| {
+            if let Some(s) = sender.read().unwrap().as_ref() {
+                let _ = s.send(Data::Message(msg));
+            }
+        }));
+    }
+    let port = crate::gallery_http::start().unwrap_or(0);
+    SyncReturn(port as u32)
+}
+
 pub fn session_screen_off(session_id: SessionID) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.screen_off();
