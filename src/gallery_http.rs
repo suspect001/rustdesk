@@ -165,7 +165,7 @@ async fn handle_connection(mut stream: TcpStream) {
             let mut msg_out = Message::new();
             msg_out.set_misc(req);
             let key = format!("list:{}", dir);
-            match request(key, msg_out, 30_000).await {
+            match request(key, msg_out, 10_000).await {
                 Some(mut m) => {
                     if m.has_media_list_data() {
                         let d = m.take_media_list_data();
@@ -186,7 +186,7 @@ async fn handle_connection(mut stream: TcpStream) {
             let mut msg_out = Message::new();
             msg_out.set_misc(req);
             let key = format!("thumb:{}", path);
-            match request(key, msg_out, 15_000).await {
+            match request(key, msg_out, 8_000).await {
                 Some(mut m) => {
                     if m.has_thumb_data() {
                         let d = m.take_thumb_data();
@@ -216,7 +216,7 @@ async fn handle_connection(mut stream: TcpStream) {
                 let mut msg_out = Message::new();
                 msg_out.set_misc(req);
                 let key = format!("range:{}:{}", path, offset);
-                match request(key, msg_out, 20_000).await {
+                match request(key, msg_out, 10_000).await {
                     Some(mut m) => {
                         if m.has_file_range_data() {
                             let d = m.take_file_range_data();
@@ -259,7 +259,7 @@ async fn handle_connection(mut stream: TcpStream) {
             let mut msg_out = Message::new();
             msg_out.set_misc(req);
             let key = format!("range:{}:{}", path, start);
-            match request(key, msg_out, 20_000).await {
+            match request(key, msg_out, 10_000).await {
                 Some(mut m) => {
                     if m.has_file_range_data() {
                         let d = m.take_file_range_data();

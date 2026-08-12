@@ -40,7 +40,9 @@ class _GalleryPageState extends State<GalleryPage> {
     });
     try {
       final dir = _tabs[_tab];
-      final client = HttpClient();
+      final client = HttpClient()
+        ..idleTimeout = const Duration(seconds: 60)
+        ..connectionTimeout = const Duration(seconds: 30);
       final req = await client
           .getUrl(Uri.parse('$_base/list?dir=${Uri.encodeComponent(dir)}'));
       final resp = await req.close();
