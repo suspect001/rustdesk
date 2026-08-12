@@ -48,6 +48,9 @@ object GalleryService {
     // subdirs like DCIM/Camera is only reachable through MediaStore.
     private fun queryMediaStore(context: Context, wanted: List<String>, result: JSONArray) {
         try {
+            var totalRows = 0
+            var nullData = 0
+            var filtered = 0
             for (uri in arrayOf(
                 android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
@@ -64,10 +67,18 @@ object GalleryService {
                     val colName = c.getColumnIndex(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
                     val colSize = c.getColumnIndex(android.provider.MediaStore.MediaColumns.SIZE)
                     val colMtime = c.getColumnIndex(android.provider.MediaStore.MediaColumns.DATE_MODIFIED)
+                    totalRows += c.count
                     while (c.moveToNext()) {
-                        val path = c.getString(colData) ?: continue
+                        val path = c.getString(colData)
+                        if (path == null) {
+                            nullData++
+                            continue
+                        }
                         val dirOk = wanted.any { path.startsWith("/storage/emulated/0/$it") }
-                        if (!dirOk) continue
+                        if (!dirOk) {
+                            filtered++
+                            continue
+                        }
                         result.put(JSONObject().apply {
                             put("path", path)
                             put("name", c.getString(colName) ?: "")
@@ -78,6 +89,7 @@ object GalleryService {
                     }
                 }
             }
+            FileLog.log(logTag, "queryMediaStore: totalRows=$totalRows, nullData=$nullData, filtered=$filtered, kept=${result.length()}")
         } catch (e: Exception) {
             Log.e(logTag, "queryMediaStore failed: $e")
             FileLog.log(logTag, "queryMediaStore failed: $e")
