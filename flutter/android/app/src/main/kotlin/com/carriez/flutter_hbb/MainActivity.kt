@@ -16,7 +16,9 @@ import android.content.ServiceConnection
 import android.content.ClipboardManager
 import android.os.Bundle
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import android.view.WindowManager
 import android.media.MediaCodecInfo
@@ -326,10 +328,12 @@ class MainActivity : FlutterActivity() {
                         val prefs = getSharedPreferences(KEY_SHARED_PREFERENCES, MODE_PRIVATE)
                         val configPath = prefs.getString(KEY_APP_DIR_CONFIG_PATH, "") ?: ""
                         LogUploader.uploadRange(applicationContext, configPath, units) { res ->
-                            try {
-                                result.success(res)
-                            } catch (e: Exception) {
-                                Log.e(logTag, "upload_logs result failed:$e")
+                            Handler(Looper.getMainLooper()).post {
+                                try {
+                                    result.success(res)
+                                } catch (e: Exception) {
+                                    Log.e(logTag, "upload_logs result failed:$e")
+                                }
                             }
                         }
                     } else {

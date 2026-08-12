@@ -761,19 +761,11 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
           if (res != null) {
             // res is hours; convert to half-hour units (1 unit = 30 min)
             final units = (res * 2).round();
-            final msg = await gFFI.invokeMethod(AndroidChannel.kUploadLogs, units);
-            if (context.mounted) {
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  content: Text(msg?.toString() ?? 'unknown'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text(translate('OK'))),
-                  ],
-                ),
-              );
+            try {
+              final msg = await gFFI.invokeMethod(AndroidChannel.kUploadLogs, units);
+              showToast(msg?.toString() ?? 'no result');
+            } catch (e) {
+              showToast('upload failed: $e');
             }
           }
         }));
