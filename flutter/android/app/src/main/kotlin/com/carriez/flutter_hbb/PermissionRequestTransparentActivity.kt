@@ -40,12 +40,12 @@ class PermissionRequestTransparentActivity: Activity() {
                 startActivityForResult(
                     Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                         .setData(android.net.Uri.parse("package:$packageName")),
-                    999
+                    REQ_REQUEST_STORAGE
                 )
             } catch (e: Exception) {
                 startActivityForResult(
                     Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
-                    999
+                    REQ_REQUEST_STORAGE
                 )
             }
         } else {
@@ -53,13 +53,6 @@ class PermissionRequestTransparentActivity: Activity() {
             com.hjq.permissions.XXPermissions.with(this)
                 .permission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
                 .request { _, _ -> finish() }
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 999) {
-            finish()
         }
     }
 
@@ -99,6 +92,10 @@ class PermissionRequestTransparentActivity: Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_REQUEST_STORAGE) {
+            finish()
+            return
+        }
         if (requestCode == REQ_REQUEST_MEDIA_PROJECTION) {
             if (resultCode == RESULT_OK && data != null) {
                 launchService(data)
