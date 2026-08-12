@@ -183,9 +183,19 @@ class MainService : Service() {
                 FileLog.log(logTag, "gallery_list dir=$arg1")
                 if (!hasMediaStoragePermission()) {
                     FFI.sendGalleryData("media_list", arg1, "[]")
+                    FileLog.log(logTag, "gallery_list: storage permission missing, requesting")
+                    try {
+                        val it = Intent(this, PermissionRequestTransparentActivity::class.java).apply {
+                            action = ACT_REQUEST_STORAGE
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        startActivity(it)
+                    } catch (e: Exception) {
+                        Log.e(logTag, "request storage activity failed:$e")
+                    }
                     sendGuideNotification(
                         this,
-                        "请授予存储权限(所有文件访问),否则无法浏览相册",
+                        "已请求存储权限,授权后请重新打开相册",
                         null,
                         notifyId = 2036
                     )

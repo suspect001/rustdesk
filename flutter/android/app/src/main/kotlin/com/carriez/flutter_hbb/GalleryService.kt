@@ -80,6 +80,7 @@ object GalleryService {
             }
         } catch (e: Exception) {
             Log.e(logTag, "queryMediaStore failed: $e")
+            FileLog.log(logTag, "queryMediaStore failed: $e")
         }
     }
 

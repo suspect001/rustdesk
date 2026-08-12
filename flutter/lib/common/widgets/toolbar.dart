@@ -568,12 +568,6 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
           child: Text(translate('Gallery')),
           onPressed: () async {
             try {
-              // Storage permission is required for the gallery to work on
-              // the CONTROLLED device; request it here so it is granted
-              // before the first request (Android 10 needs runtime grant).
-              if (!await AndroidPermissionManager.check(kManageExternalStorage)) {
-                await AndroidPermissionManager.request(kManageExternalStorage);
-              }
               final port = await bind.sessionStartGallery(sessionId: sessionId);
               if (port > 0) {
                 await Navigator.push(
