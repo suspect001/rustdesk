@@ -22,28 +22,61 @@ object GalleryService {
     fun listMedia(context: Context, dirName: String) {
         thread {
             try {
-                val root = android.os.Environment.getExternalStorageDirectory()
-                FileLog.log(logTag, "listMedia: root=$root, root.exists=${root.exists()}")
                 val result = JSONArray()
                 val wanted = if (dirName.isBlank() || dirName == "All") dirs else listOf(dirName)
-                for (d in wanted) {
-                    val dir = File(root, d)
-                    FileLog.log(logTag, "listMedia: scan $d")
-                    if (dir.isDirectory) {
-                        scanDir(dir, result, 0)
-                    }
-                }
+                // MediaStore is the standard way on Android 10+ (scoped
+                // storage blocks direct File access to media subdirs).
+                queryMediaStore(context, wanted, result)
                 // sort by mtime desc
                 val arr = ArrayList<JSONObject>()
                 for (i in 0 until result.length()) arr.add(result.getJSONObject(i))
                 arr.sortByDescending { it.optLong("mtime") }
                 val json = JSONArray().apply { arr.forEach { put(it) } }.toString()
                 FFI.sendGalleryData("media_list", dirName, json)
-                FileLog.log(logTag, "listMedia: ${arr.size} files in $wanted")
+                FileLog.log(logTag, "listMedia: ${arr.size} files via MediaStore")
             } catch (e: Exception) {
                 Log.e(logTag, "listMedia failed: $e")
                 FFI.sendGalleryData("media_list", dirName, "[]")
             }
+        }
+    }
+
+    // Query MediaStore for images and videos. On Android 10+ media under
+    // subdirs like DCIM/Camera is only reachable through MediaStore.
+    private fun queryMediaStore(context: Context, wanted: List<String>, result: JSONArray) {
+        try {
+            for (uri in arrayOf(
+                android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            )) {
+                val isVideo = uri == android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                val projection = arrayOf(
+                    android.provider.MediaStore.MediaColumns.DATA,
+                    android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
+                    android.provider.MediaStore.MediaColumns.SIZE,
+                    android.provider.MediaStore.MediaColumns.DATE_MODIFIED
+                )
+                context.contentResolver.query(uri, projection, null, null, null)?.use { c ->
+                    val colData = c.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                    val colName = c.getColumnIndex(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
+                    val colSize = c.getColumnIndex(android.provider.MediaStore.MediaColumns.SIZE)
+                    val colMtime = c.getColumnIndex(android.provider.MediaStore.MediaColumns.DATE_MODIFIED)
+                    while (c.moveToNext()) {
+                        val path = c.getString(colData) ?: continue
+                        val dirOk = wanted.any { path.startsWith("/storage/emulated/0/$it") }
+                        if (!dirOk) continue
+                        result.put(JSONObject().apply {
+                            put("path", path)
+                            put("name", c.getString(colName) ?: "")
+                            put("type", if (isVideo) "video" else "image")
+                            put("size", c.getLong(colSize))
+                            put("mtime", c.getLong(colMtime) * 1000L)
+                        })
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(logTag, "queryMediaStore failed: $e")
         }
     }
 
