@@ -4032,7 +4032,9 @@ class FFI {
     platformFFI.setMethodCallHandler(callback);
   }
 
-  Future<bool> invokeMethod(String method, [dynamic arguments]) async {
+  // Returns the actual platform value (bool/String/Map...); typed dynamic
+  // because many Android channel methods return non-bool values.
+  Future<dynamic> invokeMethod(String method, [dynamic arguments]) async {
     return await platformFFI.invokeMethod(method, arguments);
   }
 
