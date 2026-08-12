@@ -165,6 +165,7 @@ async fn handle_connection(mut stream: TcpStream) {
     let result: Option<(String, String, Vec<u8>, Vec<(&'static str, String)>)> = match route.as_str() {
         "/list" => {
             let dir = query.get("dir").cloned().unwrap_or_default();
+            log::info!("gallery: /list dir={dir} range={:?}", range);
             let mut req = Misc::new();
             let mut r = MediaListRequest::new();
             r.dir = dir.clone();
@@ -186,6 +187,7 @@ async fn handle_connection(mut stream: TcpStream) {
         }
         "/thumb" => {
             let path = query.get("path").cloned().unwrap_or_default();
+            log::info!("gallery: /thumb path={} (truncated)", path.chars().take(80).collect::<String>());
             let mut req = Misc::new();
             let mut r = ThumbRequest::new();
             r.path = path.clone();
@@ -210,6 +212,7 @@ async fn handle_connection(mut stream: TcpStream) {
             // concatenate. (Thumbnails are only 512px; the viewer needs the
             // real image.)
             let path = query.get("path").cloned().unwrap_or_default();
+            log::info!("gallery: /image path={} (truncated)", path.chars().take(80).collect::<String>());
             let mut body: Vec<u8> = Vec::new();
             let mut offset: u64 = 0;
             let mut failed = false;
@@ -258,6 +261,7 @@ async fn handle_connection(mut stream: TcpStream) {
         }
         "/video" => {
             let path = query.get("path").cloned().unwrap_or_default();
+            log::info!("gallery: /video path={} (truncated) range={:?}", path.chars().take(80).collect::<String>(), range);
             // No Range header (ExoPlayer's first request): fetch the whole
             // file in segments and return 200 with the full body. A 1MB
             // Content-Length would be treated as the entire stream by the
@@ -348,6 +352,7 @@ async fn handle_connection(mut stream: TcpStream) {
         _ => None,
     };
 
+    log::info!("gallery: {} -> {}", route, match &result { Some((s,_,_,_)) => s.clone(), None => "404".to_string() });
     match result {
         Some((status, ctype, body, extra)) => {
             let extra_refs: Vec<(&str, &str)> = extra
