@@ -19,6 +19,9 @@ object GalleryService {
     private val imageExt = listOf(".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".heic")
     private val videoExt = listOf(".mp4", ".mkv", ".avi", ".mov", ".webm", ".3gp")
 
+    // cap concurrent thumbnail generation (bitmap memory)
+    private val thumbSemaphore = java.util.concurrent.Semaphore(4)
+
     fun listMedia(context: Context, dirName: String) {
         thread {
             try {
@@ -108,6 +111,7 @@ object GalleryService {
 
     fun thumbFor(context: Context, path: String) {
         thread {
+            thumbSemaphore.acquire()
             try {
                 val f = File(path)
                 if (!f.isFile) {
@@ -135,6 +139,8 @@ object GalleryService {
             } catch (e: Exception) {
                 Log.e(logTag, "thumbFor failed: $e")
                 FFI.sendGalleryData("thumb", path, "")
+            } finally {
+                thumbSemaphore.release()
             }
         }
     }
@@ -161,7 +167,11 @@ object GalleryService {
         return try {
             val retriever = android.media.MediaMetadataRetriever()
             retriever.setDataSource(f.absolutePath)
-            val frame = retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            val frame = if (android.os.Build.VERSION.SDK_INT >= 27) {
+                retriever.getScaledFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 512, 512)
+            } else {
+                retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            }
             retriever.release()
             frame
         } catch (e: Exception) {

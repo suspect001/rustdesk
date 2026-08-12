@@ -14,10 +14,11 @@ use std::sync::{Arc, Mutex, OnceLock};
 pub type GallerySessionSender = Arc<dyn Fn(Message) + Send + Sync>;
 
 static SESSION_SENDER: Mutex<Option<GallerySessionSender>> = Mutex::new(None);
-static WAITERS: OnceLock<Mutex<HashMap<String, Vec<mpsc::UnboundedSender<Message>>>>> =
+static WAITERS: OnceLock<Mutex<HashMap<String, Vec<(u64, mpsc::UnboundedSender<Message>)>>>> =
     OnceLock::new();
+static NEXT_WAITER_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
-fn waiters() -> &'static Mutex<HashMap<String, Vec<mpsc::UnboundedSender<Message>>>> {
+fn waiters() -> &'static Mutex<HashMap<String, Vec<(u64, mpsc::UnboundedSender<Message>)>>> {
     WAITERS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
@@ -30,7 +31,7 @@ pub fn set_session_sender(f: GallerySessionSender) {
 pub fn on_gallery_data(key: &str, msg: Message) {
     let mut map = waiters().lock().unwrap();
     if let Some(senders) = map.remove(key) {
-        for tx in senders {
+        for (_, tx) in senders {
             let _ = tx.send(msg.clone());
         }
     }
@@ -40,9 +41,10 @@ pub fn on_gallery_data(key: &str, msg: Message) {
 // be missed. Returns the response message or None on timeout.
 async fn request(key: String, msg: Message, timeout_ms: u64) -> Option<Message> {
     let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+    let id = NEXT_WAITER_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     {
         let mut map = waiters().lock().unwrap();
-        map.entry(key.clone()).or_default().push(tx);
+        map.entry(key.clone()).or_default().push((id, tx));
     }
     if let Some(f) = SESSION_SENDER.lock().unwrap().as_ref() {
         f(msg);
@@ -56,7 +58,12 @@ async fn request(key: String, msg: Message, timeout_ms: u64) -> Option<Message> 
         Ok(Some(msg)) => Some(msg),
         _ => {
             let mut map = waiters().lock().unwrap();
-            map.remove(&key);
+            if let Some(v) = map.get_mut(&key) {
+                v.retain(|(tid, _)| *tid != id);
+                if v.is_empty() {
+                    map.remove(&key);
+                }
+            }
             None
         }
     }
@@ -221,6 +228,9 @@ async fn handle_connection(mut stream: TcpStream) {
                         if m.has_file_range_data() {
                             let d = m.take_file_range_data();
                             if d.data.is_empty() {
+                                if d.eof {
+                                    break;
+                                }
                                 failed = true;
                                 break;
                             }
@@ -248,41 +258,91 @@ async fn handle_connection(mut stream: TcpStream) {
         }
         "/video" => {
             let path = query.get("path").cloned().unwrap_or_default();
-            let (start, end) = range.unwrap_or((0, 1024 * 1024 - 1));
-            let length = (end - start + 1).min(1024 * 1024) as u32;
-            let mut req = Misc::new();
-            let mut r = FileRangeRequest::new();
-            r.path = path.clone();
-            r.offset = start;
-            r.length = length;
-            req.set_file_range_request(r);
-            let mut msg_out = Message::new();
-            msg_out.set_misc(req);
-            let key = format!("range:{}:{}", path, start);
-            match request(key, msg_out, 10_000).await {
-                Some(mut m) => {
-                    if m.has_file_range_data() {
-                        let d = m.take_file_range_data();
-                        let eof = d.eof;
-                        let data = d.data.to_vec();
-                        if data.is_empty() {
-                            None
-                        } else {
-                            let end_byte = start + data.len() as u64 - 1;
-                            let total = if eof { (end_byte + 1).to_string() } else { "*".to_string() };
-                            let mut extra = vec![];
-                            extra.push(("Content-Range", format!("bytes {}-{}/{}", start, end_byte, total)));
-                            if range.is_some() {
-                                Some(("206 Partial Content".to_string(), "video/mp4".to_string(), data, extra))
+            // No Range header (ExoPlayer's first request): fetch the whole
+            // file in segments and return 200 with the full body. A 1MB
+            // Content-Length would be treated as the entire stream by the
+            // player and playback would stall after the first megabyte.
+            match range {
+                Some((start, end)) => {
+                    let length = (end - start + 1).min(1024 * 1024) as u32;
+                    let mut req = Misc::new();
+                    let mut r = FileRangeRequest::new();
+                    r.path = path.clone();
+                    r.offset = start;
+                    r.length = length;
+                    req.set_file_range_request(r);
+                    let mut msg_out = Message::new();
+                    msg_out.set_misc(req);
+                    let key = format!("range:{}:{}", path, start);
+                    match request(key, msg_out, 10_000).await {
+                        Some(mut m) => {
+                            if m.has_file_range_data() {
+                                let d = m.take_file_range_data();
+                                let eof = d.eof;
+                                let data = d.data.to_vec();
+                                if data.is_empty() {
+                                    None
+                                } else {
+                                    let end_byte = start + data.len() as u64 - 1;
+                                    let total = if eof { (end_byte + 1).to_string() } else { "*".to_string() };
+                                    let mut extra = vec![];
+                                    extra.push(("Content-Range", format!("bytes {}-{}/{}", start, end_byte, total)));
+                                    Some(("206 Partial Content".to_string(), "video/mp4".to_string(), data, extra))
+                                }
                             } else {
-                                Some(("200 OK".to_string(), "video/mp4".to_string(), data, extra))
+                                None
                             }
                         }
-                    } else {
-                        None
+                        None => None,
                     }
                 }
-                None => None,
+                None => {
+                    let mut body: Vec<u8> = Vec::new();
+                    let mut offset: u64 = 0;
+                    let mut failed = false;
+                    for _ in 0..1024 {
+                        let mut req = Misc::new();
+                        let mut r = FileRangeRequest::new();
+                        r.path = path.clone();
+                        r.offset = offset;
+                        r.length = 1024 * 1024;
+                        req.set_file_range_request(r);
+                        let mut msg_out = Message::new();
+                        msg_out.set_misc(req);
+                        let key = format!("range:{}:{}", path, offset);
+                        match request(key, msg_out, 10_000).await {
+                            Some(mut m) => {
+                                if m.has_file_range_data() {
+                                    let d = m.take_file_range_data();
+                                    if d.data.is_empty() {
+                                        if d.eof {
+                                            break;
+                                        }
+                                        failed = true;
+                                        break;
+                                    }
+                                    body.extend_from_slice(&d.data);
+                                    offset += d.data.len() as u64;
+                                    if d.eof {
+                                        break;
+                                    }
+                                } else {
+                                    failed = true;
+                                    break;
+                                }
+                            }
+                            None => {
+                                failed = true;
+                                break;
+                            }
+                        }
+                    }
+                    if failed || body.is_empty() {
+                        None
+                    } else {
+                        Some(("200 OK".to_string(), "video/mp4".to_string(), body, vec![]))
+                    }
+                }
             }
         }
         _ => None,
