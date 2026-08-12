@@ -35,8 +35,6 @@ mod bridge_generated;
 pub mod flutter;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 pub mod flutter_ffi;
-#[cfg(feature = "flutter")]
-pub mod gallery_http;
 use common::*;
 mod auth_2fa;
 #[cfg(not(target_os = "ios"))]

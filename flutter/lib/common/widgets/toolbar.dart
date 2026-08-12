@@ -8,7 +8,6 @@ import 'package:flutter_hbb/common/shared_state.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/login.dart';
 import 'package:flutter_hbb/consts.dart';
-import 'package:flutter_hbb/mobile/pages/gallery_page.dart';
 import 'package:flutter_hbb/desktop/widgets/remote_toolbar.dart';
 import 'package:flutter_hbb/models/model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
@@ -561,129 +560,7 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
           }),
     );
   }
-  // gallery: browse the Android controlled device's photo gallery.
-  if (isDefaultConn && pi.platform == kPeerPlatformAndroid) {
-    v.add(
-      TTextMenu(
-          child: Text(translate('Gallery')),
-          onPressed: () async {
-            try {
-              final port = await bind.sessionStartGallery(sessionId: sessionId);
-              if (port > 0) {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => GalleryPage(id: id, port: port)),
-                );
-              } else {
-                showToast(translate('Failed'));
-              }
-            } catch (e) {
-              showToast(translate('Failed'));
-            }
-          }),
-    );
-  }
-  // insertLock
-  if (isDefaultConn && !ffiModel.viewOnly && ffi.ffiModel.keyboard) {
-    v.add(
-      TTextMenu(
-          child: Text(translate('Insert Lock')),
-          onPressed: () => bind.sessionLockScreen(sessionId: sessionId)),
-    );
-  }
-  // blockUserInput
-  if (isDefaultConn &&
-      ffi.ffiModel.keyboard &&
-      ffi.ffiModel.permissions['block_input'] != false &&
-      pi.platform == kPeerPlatformWindows) // privacy-mode != true ??
-  {
-    v.add(TTextMenu(
-        child: Obx(() => Text(translate(
-            '${BlockInputState.find(id).value ? 'Unb' : 'B'}lock user input'))),
-        onPressed: () {
-          RxBool blockInput = BlockInputState.find(id);
-          bind.sessionToggleOption(
-              sessionId: sessionId,
-              value: '${blockInput.value ? 'un' : ''}block-input');
-          blockInput.value = !blockInput.value;
-        }));
-  }
-  // switchSides
-  if (isDefaultConn &&
-      isDesktop &&
-      ffiModel.keyboard &&
-      pi.platform != kPeerPlatformAndroid &&
-      versionCmp(pi.version, '1.2.0') >= 0 &&
-      bind.peerGetSessionsCount(id: id, connType: ffi.connType.index) == 1) {
-    v.add(TTextMenu(
-        child: Text(translate('Switch Sides')),
-        onPressed: () =>
-            showConfirmSwitchSidesDialog(sessionId, id, ffi.dialogManager)));
-  }
-  // refresh
-  if (pi.version.isNotEmpty) {
-    v.add(TTextMenu(
-      child: Text(translate('Refresh')),
-      onPressed: () => sessionRefreshVideo(sessionId, pi),
-    ));
-  }
-  // record
-  if (!(isDesktop || isWeb) &&
-      bind.mainGetLocalOption(key: kOptionHideRecordingButton) != 'Y' &&
-      (ffi.recordingModel.start || (perms["recording"] != false))) {
-    v.add(TTextMenu(
-        child: Row(
-          children: [
-            Text(translate(ffi.recordingModel.start
-                ? 'Stop session recording'
-                : 'Start session recording')),
-            Padding(
-              padding: EdgeInsets.only(left: 12),
-              child: Icon(
-                  ffi.recordingModel.start
-                      ? Icons.pause_circle_filled
-                      : Icons.videocam_outlined,
-                  color: MyTheme.accent),
-            )
-          ],
-        ),
-        onPressed: () => ffi.recordingModel.toggle()));
-  }
 
-  // to-do:
-  // 1. Web desktop
-  // 2. Mobile, copy the image to the clipboard
-  if ((isDefaultConn || ffi.connType == ConnType.viewCamera) && isDesktop) {
-    final isScreenshotSupported = bind.sessionGetCommonSync(
-        sessionId: sessionId, key: 'is_screenshot_supported', param: '');
-    if ('true' == isScreenshotSupported) {
-      v.add(TTextMenu(
-        child: Text(ffi.ffiModel.timerScreenshot != null
-            ? '${translate('Taking screenshot')} ...'
-            : translate('Take screenshot')),
-        onPressed: ffi.ffiModel.timerScreenshot != null
-            ? null
-            : () {
-                if (pi.currentDisplay == kAllDisplayValue) {
-                  msgBox(
-                      sessionId,
-                      'custom-nook-nocancel-hasclose-info',
-                      'Take screenshot',
-                      'screenshot-merged-screen-not-supported-tip',
-                      '',
-                      ffi.dialogManager);
-                } else {
-                  bind.sessionTakeScreenshot(
-                      sessionId: sessionId, display: pi.currentDisplay);
-                  ffi.ffiModel.timerScreenshot =
-                      Timer(Duration(seconds: 30), () {
-                    ffi.ffiModel.timerScreenshot = null;
-                  });
-                }
-              },
-      ));
-    }
   }
   // fingerprint
   if (!(isDesktop || isWebDesktop)) {

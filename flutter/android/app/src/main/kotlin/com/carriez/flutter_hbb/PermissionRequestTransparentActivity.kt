@@ -25,36 +25,11 @@ class PermissionRequestTransparentActivity: Activity() {
             ACT_DISMISS_KEYGUARD -> {
                 dismissKeyguard()
             }
-            ACT_REQUEST_STORAGE -> {
-                requestStorage()
-            }
             else -> finish()
         }
     }
 
-    // Request storage permission for the gallery (Android 10 needs the
-    // runtime READ_EXTERNAL_STORAGE grant; Android 11+ opens All-files).
-    private fun requestStorage() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try {
-                startActivityForResult(
-                    Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                        .setData(android.net.Uri.parse("package:$packageName")),
-                    REQ_REQUEST_STORAGE
-                )
-            } catch (e: Exception) {
-                startActivityForResult(
-                    Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
-                    REQ_REQUEST_STORAGE
-                )
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            com.hjq.permissions.XXPermissions.with(this)
-                .permission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
-                .request { _, _ -> finish() }
-        }
-    }
+}
 
     // Ask the system to dismiss the keyguard. Without a password the device
     // unlocks straight to the desktop; with a password the lockscreen (with
@@ -92,10 +67,6 @@ class PermissionRequestTransparentActivity: Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQ_REQUEST_STORAGE) {
-            finish()
-            return
-        }
         if (requestCode == REQ_REQUEST_MEDIA_PROJECTION) {
             if (resultCode == RESULT_OK && data != null) {
                 launchService(data)

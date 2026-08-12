@@ -264,49 +264,7 @@ pub extern "system" fn Java_ffi_FFI_setCodecInfo(env: JNIEnv, _class: JClass, in
     }
 }
 
-#[no_mangle]
-pub extern "system" fn Java_ffi_FFI_sendGalleryData(
-    mut env: JNIEnv,
-    _class: JClass,
-    kind: JString,
-    path: JString,
-    payload: JString,
-) {
-    use hbb_common::message_proto::*;
-    let kind = env.get_string(&kind).map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-    let path = env.get_string(&path).map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-    let payload = env.get_string(&payload).map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-    let mut msg_out = Message::new();
-    match kind.as_str() {
-        "media_list" => {
-            let mut data = MediaListData::new();
-            data.dir = path;
-            data.json = payload;
-            msg_out.set_media_list_data(data);
-        }
-        "thumb" => {
-            let mut data = ThumbData::new();
-            data.path = path;
-            if let Ok(bytes) = hbb_common::base64::decode(&payload) {
-                data.data = bytes.into();
-            }
-            msg_out.set_thumb_data(data);
-        }
-        _ => return,
-    }
-    // The rustdesk app registers a callback that broadcasts the message to
-    // connected controllers (scrap cannot reference the rustdesk crate).
-    if let Some(f) = GALLERY_SENDER.get() {
-        f(msg_out);
-    }
-}
 
-type GalleryMsgSender = std::sync::Arc<dyn Fn(hbb_common::message_proto::Message) + Send + Sync>;
-static GALLERY_SENDER: std::sync::OnceLock<GalleryMsgSender> = std::sync::OnceLock::new();
-
-pub fn set_gallery_sender(f: GalleryMsgSender) {
-    let _ = GALLERY_SENDER.set(f);
-}
 
 pub fn get_codec_info() -> Option<MediaCodecInfos> {
     MEDIA_CODEC_INFOS.read().unwrap().as_ref().cloned()

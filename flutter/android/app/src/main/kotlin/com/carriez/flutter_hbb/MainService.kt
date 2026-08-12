@@ -178,35 +178,6 @@ class MainService : Service() {
                 Log.d(logTag, "from rust:stop_capture")
                 stopCapture()
             }
-            "gallery_list" -> {
-                Log.d(logTag, "from rust:gallery_list, dir=$arg1")
-                FileLog.log(logTag, "gallery_list dir=$arg1")
-                if (!hasMediaStoragePermission()) {
-                    FFI.sendGalleryData("media_list", arg1, "[]")
-                    FileLog.log(logTag, "gallery_list: storage permission missing, requesting")
-                    try {
-                        val it = Intent(this, PermissionRequestTransparentActivity::class.java).apply {
-                            action = ACT_REQUEST_STORAGE
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        }
-                        startActivity(it)
-                    } catch (e: Exception) {
-                        Log.e(logTag, "request storage activity failed:$e")
-                    }
-                    sendGuideNotification(
-                        this,
-                        "已请求存储权限,授权后请重新打开相册",
-                        null,
-                        notifyId = 2036
-                    )
-                } else {
-                    GalleryService.listMedia(applicationContext, arg1)
-                }
-            }
-            "gallery_thumb" -> {
-                Log.d(logTag, "from rust:gallery_thumb, path=$arg1")
-                GalleryService.thumbFor(applicationContext, arg1)
-            }
             "screen_off" -> {
                 // Triggered by the controlling side: turn off (and lock) the
                 // screen via the accessibility service.
@@ -740,18 +711,6 @@ class MainService : Service() {
             )
         }
         return isReady
-    }
-
-    // Gallery needs direct file access to /storage/emulated/0 media dirs:
-    // Android 11+ requires MANAGE_EXTERNAL_STORAGE ("All files access"),
-    // Android 9/10 requires READ/WRITE_EXTERNAL_STORAGE runtime permission.
-    private fun hasMediaStoragePermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Environment.isExternalStorageManager()
-        } else {
-            @Suppress("DEPRECATION")
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
-        }
     }
 
     private fun startRawVideoRecorder(mp: MediaProjection) {

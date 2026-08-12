@@ -1293,10 +1293,6 @@ class RustdeskImpl {
     return Future(() => js.context.callMethod('setByName', ['screen_off']));
   }
 
-  Future<int> sessionStartGallery(
-      {required UuidValue sessionId, dynamic hint}) {
-    return Future.value(0);
-  }
 
   String sessionGetAuditServerSync(
       {required UuidValue sessionId, required String typ, dynamic hint}) {

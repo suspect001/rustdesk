@@ -38,9 +38,7 @@ use hbb_common::{
     fs::{self, can_enable_overwrite_detection, JobType},
     futures::{SinkExt, StreamExt},
     get_time, get_version_number,
-    message_proto::{
-        option_message::BoolOption, permission_info::Permission, FileRangeData, FileRangeRequest,
-    },
+    message_proto::{option_message::BoolOption, permission_info::Permission},
     password_security::{self as password, ApproveMode},
     sha2::{Digest, Sha256},
     sleep, timeout,
@@ -458,18 +456,6 @@ const MILLI1: Duration = Duration::from_millis(1);
 const SEND_TIMEOUT_VIDEO: u64 = 12_000;
 const SEND_TIMEOUT_OTHER: u64 = SEND_TIMEOUT_VIDEO * 10;
 const SESSION_TIMEOUT: Duration = Duration::from_secs(30);
-
-// Broadcast a gallery response message (media list / thumb / file range)
-// back to all connected controllers.
-pub fn broadcast_gallery_data(msg: Message) {
-    let server = crate::server::CLIENT_SERVER.read().unwrap();
-    let msg = Arc::new(msg);
-    for conn in server.connections.values() {
-        if let Some(tx) = &conn.tx {
-            let _ = tx.send((Instant::now(), msg.clone()));
-        }
-    }
-}
 
 impl Connection {
     pub async fn start(
@@ -3653,28 +3639,6 @@ impl Connection {
                     Some(misc::Union::SwitchDisplay(s)) => {
                         self.handle_switch_display(s).await;
                     }
-                    Some(misc::Union::FileRangeRequest(req)) => {
-                        #[cfg(target_os = "android")]
-                        if self.authed_conn_type() == Some(AuthConnType::Remote) {
-                            self.handle_file_range_request(&req).await;
-                        }
-                    }
-                    Some(misc::Union::MediaListRequest(req)) => {
-                        #[cfg(target_os = "android")]
-                        if self.authed_conn_type() == Some(AuthConnType::Remote) {
-                            scrap::android::call_main_service_set_by_name(
-                                "gallery_list", Some(&req.dir), None,
-                            );
-                        }
-                    }
-                    Some(misc::Union::ThumbRequest(req)) => {
-                        #[cfg(target_os = "android")]
-                        if self.authed_conn_type() == Some(AuthConnType::Remote) {
-                            scrap::android::call_main_service_set_by_name(
-                                "gallery_thumb", Some(&req.path), None,
-                            );
-                        }
-                    }
                     Some(misc::Union::CaptureDisplays(displays)) => {
                         let add = displays.add.iter().map(|d| *d as usize).collect::<Vec<_>>();
                         let sub = displays.sub.iter().map(|d| *d as usize).collect::<Vec<_>>();
@@ -4399,58 +4363,6 @@ impl Connection {
                 super::service::SERVICE_OPTION_VALUE_TRUE,
             );
         });
-    }
-
-    // Gallery: read a byte range of a media file and send it back to the
-    // controller. Path is restricted to the external storage media dirs.
-    async fn handle_file_range_request(&mut self, req: &FileRangeRequest) {
-        let path = req.path.clone();
-        let offset = req.offset;
-        let length = (req.length.min(1024 * 1024)) as usize;
-        let mut data: Vec<u8> = Vec::new();
-        let mut eof = true;
-        let media_prefixes = [
-            "/storage/emulated/0/DCIM/",
-            "/storage/emulated/0/Pictures/",
-            "/storage/emulated/0/Screenshots/",
-            "/storage/emulated/0/Download/",
-        ];
-        let allowed = !path.contains("..")
-            && media_prefixes.iter().any(|p| path.starts_with(p));
-        if allowed {
-            match tokio::fs::File::open(&path).await {
-                Ok(mut file) => {
-                    use tokio::io::AsyncReadExt;
-                    use tokio::io::AsyncSeekExt;
-                    if file.seek(std::io::SeekFrom::Start(offset)).await.is_ok() {
-                        let mut buf = vec![0u8; length];
-                        match file.read(&mut buf).await {
-                            Ok(n) => {
-                                buf.truncate(n);
-                                eof = n < length;
-                                data = buf;
-                            }
-                            Err(e) => {
-                                log::info!("gallery read failed: {e}");
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    log::info!("gallery open failed: {e}");
-                }
-            }
-        } else {
-            log::info!("gallery path not allowed: {path}");
-        }
-        let mut data_msg = FileRangeData::new();
-        data_msg.path = path;
-        data_msg.offset = offset;
-        data_msg.data = data.into();
-        data_msg.eof = eof;
-        let mut msg_out = Message::new();
-        msg_out.set_file_range_data(data_msg);
-        self.send(msg_out).await;
     }
 
     async fn handle_switch_display(&mut self, s: SwitchDisplay) {        let display_idx = s.display as usize;
