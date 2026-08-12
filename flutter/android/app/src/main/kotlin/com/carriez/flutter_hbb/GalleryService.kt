@@ -23,31 +23,14 @@ object GalleryService {
         thread {
             try {
                 val root = android.os.Environment.getExternalStorageDirectory()
-                FileLog.log(logTag, "listMedia: root=$root, root.exists=${root.exists()}, dirs=${root.listFiles()?.size}")
+                FileLog.log(logTag, "listMedia: root=$root, root.exists=${root.exists()}")
                 val result = JSONArray()
                 val wanted = if (dirName.isBlank() || dirName == "All") dirs else listOf(dirName)
                 for (d in wanted) {
                     val dir = File(root, d)
-                    val files = if (dir.isDirectory) dir.listFiles() else null
-                    FileLog.log(logTag, "listMedia: dir=$d, isDir=${dir.isDirectory}, files=${files?.size ?: "null"}")
-                    files?.forEach { f ->
-                        if (f.isFile) {
-                            val name = f.name.lowercase()
-                            val type = when {
-                                imageExt.any { name.endsWith(it) } -> "image"
-                                videoExt.any { name.endsWith(it) } -> "video"
-                                else -> null
-                            }
-                            if (type != null) {
-                                result.put(JSONObject().apply {
-                                    put("path", f.absolutePath)
-                                    put("name", f.name)
-                                    put("type", type)
-                                    put("size", f.length())
-                                    put("mtime", f.lastModified())
-                                })
-                            }
-                        }
+                    FileLog.log(logTag, "listMedia: scan $d")
+                    if (dir.isDirectory) {
+                        scanDir(dir, result, 0)
                     }
                 }
                 // sort by mtime desc
@@ -60,6 +43,32 @@ object GalleryService {
             } catch (e: Exception) {
                 Log.e(logTag, "listMedia failed: $e")
                 FFI.sendGalleryData("media_list", dirName, "[]")
+            }
+        }
+    }
+
+    // Recursive scan (media files usually live in subdirs like DCIM/Camera).
+    private fun scanDir(dir: File, result: JSONArray, depth: Int) {
+        if (depth > 3) return
+        dir.listFiles()?.forEach { f ->
+            if (f.isFile) {
+                val name = f.name.lowercase()
+                val type = when {
+                    imageExt.any { name.endsWith(it) } -> "image"
+                    videoExt.any { name.endsWith(it) } -> "video"
+                    else -> null
+                }
+                if (type != null) {
+                    result.put(JSONObject().apply {
+                        put("path", f.absolutePath)
+                        put("name", f.name)
+                        put("type", type)
+                        put("size", f.length())
+                        put("mtime", f.lastModified())
+                    })
+                }
+            } else if (f.isDirectory) {
+                scanDir(f, result, depth + 1)
             }
         }
     }
