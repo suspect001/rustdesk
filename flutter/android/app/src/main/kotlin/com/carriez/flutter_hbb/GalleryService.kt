@@ -23,12 +23,14 @@ object GalleryService {
         thread {
             try {
                 val root = android.os.Environment.getExternalStorageDirectory()
+                FileLog.log(logTag, "listMedia: root=$root, root.exists=${root.exists()}, dirs=${root.listFiles()?.size}")
                 val result = JSONArray()
                 val wanted = if (dirName.isBlank() || dirName == "All") dirs else listOf(dirName)
                 for (d in wanted) {
                     val dir = File(root, d)
-                    if (!dir.isDirectory) continue
-                    dir.listFiles()?.forEach { f ->
+                    val files = if (dir.isDirectory) dir.listFiles() else null
+                    FileLog.log(logTag, "listMedia: dir=$d, isDir=${dir.isDirectory}, files=${files?.size ?: "null"}")
+                    files?.forEach { f ->
                         if (f.isFile) {
                             val name = f.name.lowercase()
                             val type = when {
