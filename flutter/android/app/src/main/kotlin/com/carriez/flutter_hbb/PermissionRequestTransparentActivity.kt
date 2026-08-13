@@ -29,8 +29,6 @@ class PermissionRequestTransparentActivity: Activity() {
         }
     }
 
-}
-
     // Ask the system to dismiss the keyguard. Without a password the device
     // unlocks straight to the desktop; with a password the lockscreen (with
     // its password pad) is shown. The pin typing itself is scheduled by
