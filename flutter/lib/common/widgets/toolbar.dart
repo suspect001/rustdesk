@@ -561,7 +561,6 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
     );
   }
 
-  }
   // fingerprint
   if (!(isDesktop || isWebDesktop)) {
     v.add(TTextMenu(
