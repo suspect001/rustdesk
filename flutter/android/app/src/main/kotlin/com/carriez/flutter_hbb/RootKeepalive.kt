@@ -61,6 +61,7 @@ object RootKeepalive {
 
                 // 2. Allow media projection without confirmation (Android 10+).
                 exec(su, "appops set $PACKAGE PROJECT_MEDIA allow")
+                exec(su, "appops get $PACKAGE PROJECT_MEDIA")
             } catch (e: Exception) {
                 FileLog.log(logTag, "tryApply failed: $e")
             }

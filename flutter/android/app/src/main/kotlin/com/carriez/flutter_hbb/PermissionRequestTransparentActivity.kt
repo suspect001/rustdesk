@@ -78,6 +78,7 @@ class PermissionRequestTransparentActivity: Activity() {
 
     private fun launchService(mediaProjectionResultIntent: Intent) {
         Log.d(logTag, "Launch MainService")
+        FileLog.log(logTag, "media projection granted via permission activity")
         val serviceIntent = Intent(this, MainService::class.java)
         serviceIntent.action = ACT_INIT_MEDIA_PROJECTION_AND_SERVICE
         serviceIntent.putExtra(EXT_MEDIA_PROJECTION_RES_INTENT, mediaProjectionResultIntent)
