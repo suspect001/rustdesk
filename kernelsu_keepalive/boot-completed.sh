@@ -63,6 +63,7 @@ restore_perms() {
   #    state) the app's components are locked and any start attempt fails
   #    with "Unable to start service ... not found".
   UNLOCKED=0
+  dumpsys user 2>/dev/null | grep -qiE 'state:[[:space:]]*RUNNING_UNLOCKED' && UNLOCKED=1
   [ "$(getprop sys.user.0.ce_available 2>/dev/null)" = "true" ] && UNLOCKED=1
   [ -d /storage/emulated/0/Android ] && UNLOCKED=1
   if [ "$UNLOCKED" = "0" ]; then
