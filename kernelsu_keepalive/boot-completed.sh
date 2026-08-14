@@ -37,11 +37,15 @@ restore_perms() {
     *) appops set "$PACKAGE" PROJECT_MEDIA allow ;;
   esac
 
-  # 3. Make sure the controlled service is running. The action is
-  #    REQUIRED: without it onStartCommand skips the media projection
-  #    request block and screen capture stays un-granted.
-  am start-service -n "$PACKAGE/com.carriez.flutter_hbb.MainService" \
-    -a INIT_MEDIA_PROJECTION_AND_SERVICE --ez EXT_INIT_FROM_BOOT true >/dev/null 2>&1
+  # 3. Make sure the controlled service is running — but only start it
+  #    when the process is NOT alive. Unconditionally calling start-service
+  #    every cycle fires onStartCommand repeatedly, which re-runs the media
+  #    projection flow every minute.
+  if ! pidof "$PACKAGE" >/dev/null 2>&1; then
+    glog "process not running, starting service"
+    am start-service -n "$PACKAGE/com.carriez.flutter_hbb.MainService" \
+      -a INIT_MEDIA_PROJECTION_AND_SERVICE --ez EXT_INIT_FROM_BOOT true >/dev/null 2>&1
+  fi
 }
 
 restore_perms
