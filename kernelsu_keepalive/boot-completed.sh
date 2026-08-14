@@ -21,10 +21,17 @@ glog() {
 }
 
 restore_perms() {
-  # 0. ColorOS "quick freeze" (com.oplus.athena) DISABLES the whole
-  #    package when it looks idle (SetEnabledSetting state=2). While
-  #    disabled every component start fails with "not found" and no
-  #    broadcast is delivered. Re-enable before anything else.
+  # 0a. ColorOS "quick freeze" engine (com.oplus.athena) disables our
+  #     package whenever it looks idle (seen ~1 min after backgrounding).
+  #     Keep the engine itself disabled — persistent across reboots,
+  #     idempotent, re-applied if an OTA re-enables it.
+  if ! pm list packages -d --user 0 2>/dev/null | grep -qx "package:com.oplus.athena"; then
+    glog "disabling quick-freeze engine com.oplus.athena"
+    pm disable-user --user 0 com.oplus.athena >/dev/null 2>&1
+  fi
+
+  # 0b. Defensive: if the package got disabled anyway (other ColorOS
+  #     optimizers), re-enable before anything else.
   if pm list packages -d 2>/dev/null | grep -qx "package:$PACKAGE"; then
     glog "package disabled by quick-freeze, re-enabling"
     pm enable "$PACKAGE" >/dev/null 2>&1
