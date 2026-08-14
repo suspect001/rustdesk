@@ -112,6 +112,28 @@ object RootKeepalive {
         return null
     }
 
+    // Synchronous, single-command path for the boot race: must be set
+    // BEFORE MainService requests media projection, otherwise the system
+    // dialog appears and requires a manual tap.
+    fun setProjectMediaSync(): Boolean {
+        try {
+            val su = findRootSu() ?: return false
+            val p = ProcessBuilder(su, "-c", "appops set $PACKAGE PROJECT_MEDIA allow")
+                .redirectErrorStream(true).start()
+            if (p.waitFor(10, TimeUnit.SECONDS)) {
+                val out = p.inputStream.bufferedReader().use { it.readText() }.trim()
+                FileLog.log(logTag, "setProjectMediaSync: exit=${p.exitValue()}${
+                    if (out.isNotEmpty()) ", out=$out" else ""
+                }")
+                return p.exitValue() == 0
+            }
+            p.destroy()
+        } catch (e: Exception) {
+            FileLog.log(logTag, "setProjectMediaSync failed: $e")
+        }
+        return false
+    }
+
     private fun exec(su: String, cmd: String) {
         try {
             val p = ProcessBuilder(su, "-c", cmd).redirectErrorStream(true).start()
