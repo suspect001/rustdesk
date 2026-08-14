@@ -38,7 +38,7 @@ restore_perms
 # the app process state. Runs detached from this script's lifecycle.
 (
   while true; do
-    sleep 600
+    sleep 60
     restore_perms
   done
 ) &
