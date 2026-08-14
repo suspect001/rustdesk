@@ -112,6 +112,57 @@ object RootKeepalive {
         return null
     }
 
+    // Periodic check: read system state via root, compare, restore if
+    // missing, and log everything for diagnostics.
+    fun checkAndRestore(context: android.content.Context) {
+        appContext = context
+        thread {
+            try {
+                val su = findRootSu() ?: run {
+                    FileLog.log(logTag, "checkAndRestore: no su")
+                    return@thread
+                }
+                // read current system state
+                val services = suOutput(su, "settings get secure enabled_accessibility_services")
+                val enabled = suOutput(su, "settings get secure accessibility_enabled")
+                val mode = suOutput(su, "appops get $PACKAGE PROJECT_MEDIA")
+                FileLog.log(logTag, "selfcheck sys: services=$services, enabled=$enabled, projectMedia=$mode")
+                val expected = "com.carriez.flutter_hbb/com.carriez.flutter_hbb.InputService"
+                if (!services.contains(expected)) {
+                    FileLog.log(logTag, "selfcheck: accessibility missing in system list, restoring")
+                    val merged = if (services.isBlank() || services == "null") expected
+                        else "$services:$expected"
+                    exec(su, "settings put secure enabled_accessibility_services \"$merged\"")
+                    exec(su, "settings put secure accessibility_enabled 1")
+                }
+                if (!mode.contains("allow")) {
+                    FileLog.log(logTag, "selfcheck: PROJECT_MEDIA not allowed, restoring")
+                    exec(su, "appops set $PACKAGE PROJECT_MEDIA allow")
+                }
+                if (enabled.trim() != "1") {
+                    FileLog.log(logTag, "selfcheck: accessibility_enabled=$enabled, restoring to 1")
+                    exec(su, "settings put secure accessibility_enabled 1")
+                }
+            } catch (e: Exception) {
+                FileLog.log(logTag, "checkAndRestore failed: $e")
+            }
+        }
+    }
+
+    private fun suOutput(su: String, cmd: String): String {
+        return try {
+            val p = ProcessBuilder(su, "-c", cmd).redirectErrorStream(true).start()
+            if (p.waitFor(10, TimeUnit.SECONDS)) {
+                p.inputStream.bufferedReader().use { it.readText() }.trim()
+            } else {
+                p.destroy()
+                ""
+            }
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
     // Synchronous, single-command path for the boot race: must be set
     // BEFORE MainService requests media projection, otherwise the system
     // dialog appears and requires a manual tap.

@@ -425,6 +425,7 @@ class MainService : Service() {
         FileLog.init(applicationContext, configPath)
         FileLog.log(logTag, "MainService onCreate, sdk=${Build.VERSION.SDK_INT}, configPath=$configPath")
         RootKeepalive.tryApply(applicationContext)
+        startPermissionSelfCheck()
         FFI.startServer(configPath, "")
 
         createForegroundNotification()
@@ -569,6 +570,20 @@ class MainService : Service() {
                 }
             }
         }, delayMs)
+    }
+
+    // Periodic self-check: every 5 minutes, compare the accessibility and
+    // media-projection state the app believes vs. what the system reports
+    // (via root), log both, and restore anything that was silently dropped.
+    private fun startPermissionSelfCheck() {
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!isStart) {
+                return@postDelayed
+            }
+            FileLog.log(logTag, "selfcheck: inputOpen=${InputService.isOpen}, mediaReady=${isReady}, isStart=${isStart}")
+            RootKeepalive.checkAndRestore(applicationContext)
+            startPermissionSelfCheck()
+        }, 5 * 60_000L)
     }
 
     private fun requestMediaProjection() {

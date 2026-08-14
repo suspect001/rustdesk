@@ -1202,12 +1202,14 @@ class InputService : AccessibilityService() {
     override fun onDestroy() {
         ctx = null
         // Keep this fallback even though onUnbind usually notifies first.
+        FileLog.log(logTag, "onDestroy: accessibility service destroyed (disabled by system or crash)")
         notifyInputState()
         super.onDestroy()
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
         ctx = null
+        FileLog.log(logTag, "onUnbind: accessibility service unbound (disabled by system)")
         notifyInputState()
         return super.onUnbind(intent)
     }
