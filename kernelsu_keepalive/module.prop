@@ -1,0 +1,6 @@
+id=rustdesk_keepalive
+name=RustDesk Keepalive
+version=v1.0
+versionCode=1
+author=user
+description=Keep RustDesk accessibility and media projection permissions after reboot (KernelSU)
