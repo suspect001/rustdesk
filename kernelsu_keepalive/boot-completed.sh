@@ -21,6 +21,16 @@ glog() {
 }
 
 restore_perms() {
+  # 0. ColorOS "quick freeze" (com.oplus.athena) DISABLES the whole
+  #    package when it looks idle (SetEnabledSetting state=2). While
+  #    disabled every component start fails with "not found" and no
+  #    broadcast is delivered. Re-enable before anything else.
+  if pm list packages -d 2>/dev/null | grep -qx "package:$PACKAGE"; then
+    glog "package disabled by quick-freeze, re-enabling"
+    pm enable "$PACKAGE" >/dev/null 2>&1
+    pm enable "$SERVICE" >/dev/null 2>&1
+  fi
+
   # IMPORTANT: only write settings when something is actually missing.
   # Blindly re-writing enabled_accessibility_services / accessibility_enabled
   # every minute makes ColorOS flag the service as "unable to run" (it
