@@ -10,23 +10,32 @@ PACKAGE=com.carriez.flutter_hbb
 SERVICE=$PACKAGE/com.carriez.flutter_hbb.InputService
 
 restore_perms() {
-  # 1. Re-enable the accessibility service, APPENDING to the existing list
-  #    so other accessibility services are not clobbered.
-  CURRENT=$(settings get secure enabled_accessibility_services 2>/dev/null)
-  case ":$CURRENT:" in
-    *":$SERVICE:"*) ;;
-    *)
-      if [ -z "$CURRENT" ] || [ "$CURRENT" = "null" ]; then
-        settings put secure enabled_accessibility_services "$SERVICE"
-      else
-        settings put secure enabled_accessibility_services "$CURRENT:$SERVICE"
-      fi
-      ;;
-  esac
-  settings put secure accessibility_enabled 1
+  # IMPORTANT: only write settings when something is actually missing.
+  # Blindly re-writing enabled_accessibility_services / accessibility_enabled
+  # every minute makes ColorOS flag the service as "unable to run" (it
+  # detects the constant settings churn). Idempotent checks only.
 
-  # 2. Allow media projection without the confirmation dialog (Android 10+).
-  appops set "$PACKAGE" PROJECT_MEDIA allow
+  # 1. Accessibility: append only when our service is absent from the list.
+  CURRENT=$(settings get secure enabled_accessibility_services 2>/dev/null)
+  PRESENT=0
+  case ":$CURRENT:" in
+    *":$SERVICE:"*) PRESENT=1 ;;
+  esac
+  if [ "$PRESENT" = "0" ]; then
+    if [ -z "$CURRENT" ] || [ "$CURRENT" = "null" ]; then
+      settings put secure enabled_accessibility_services "$SERVICE"
+    else
+      settings put secure enabled_accessibility_services "$CURRENT:$SERVICE"
+    fi
+    settings put secure accessibility_enabled 1
+  fi
+
+  # 2. Media projection: set only when not already allowed.
+  MODE=$(appops get "$PACKAGE" PROJECT_MEDIA 2>/dev/null)
+  case "$MODE" in
+    *"allow"*) ;;
+    *) appops set "$PACKAGE" PROJECT_MEDIA allow ;;
+  esac
 
   # 3. Make sure the controlled service is running. The action is
   #    REQUIRED: without it onStartCommand skips the media projection
@@ -37,11 +46,11 @@ restore_perms() {
 
 restore_perms
 
-# Resident guardian: re-apply permissions every 10 minutes, regardless of
+# Resident guardian: check (idempotently) every 5 minutes, regardless of
 # the app process state. Runs detached from this script's lifecycle.
 (
   while true; do
-    sleep 60
+    sleep 300
     restore_perms
   done
 ) &
