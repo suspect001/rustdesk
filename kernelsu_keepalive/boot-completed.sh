@@ -48,10 +48,16 @@ restore_perms() {
     *) appops set "$PACKAGE" PROJECT_MEDIA allow ;;
   esac
 
-  # 3. Make sure the controlled service is running — but only start it
-  #    when the process is NOT alive. Unconditionally calling start-service
-  #    every cycle fires onStartCommand repeatedly, which re-runs the media
-  #    projection flow every minute.
+  # 3. Make sure the controlled service is running — but only after the
+  #    user has UNLOCKED the device. Before first unlock (Direct Boot
+  #    state) the app's components are locked and any start attempt fails
+  #    with "Unable to start service ... not found".
+  UNLOCKED=0
+  [ -d /storage/emulated/0/Android ] && UNLOCKED=1
+  if [ "$UNLOCKED" = "0" ]; then
+    glog "device locked (direct boot), skipping service start"
+    return
+  fi
   if ! pidof "$PACKAGE" >/dev/null 2>&1; then
     glog "process not running, starting service"
     am start-service -n "$PACKAGE/com.carriez.flutter_hbb.MainService" \
