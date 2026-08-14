@@ -246,6 +246,7 @@ class MainService : Service() {
     private val powerManager: PowerManager by lazy { applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager }
     private val wakeLock: PowerManager.WakeLock by lazy { powerManager.newWakeLock(PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "rustdesk:wakelock")}
     private val unlockInProgress = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val mediaRequestInFlight = java.util.concurrent.atomic.AtomicBoolean(false)
 
     // Wake up the screen and dismiss keyguard when a session starts, so that
     // MediaProjection starts producing frames even if the device was locked
@@ -555,6 +556,19 @@ class MainService : Service() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         updateScreenInfo(newConfig.orientation)
+    }
+
+    private fun scheduleMediaRequestRetry(delayMs: Long) {
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!isReady && !mediaRequestInFlight.get()) {
+                FileLog.log(logTag, "media projection retry after ${delayMs}ms")
+                try {
+                    requestMediaProjection()
+                } catch (e: Exception) {
+                    Log.e(logTag, "media retry failed:$e")
+                }
+            }
+        }, delayMs)
     }
 
     private fun requestMediaProjection() {
