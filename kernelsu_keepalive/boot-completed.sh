@@ -8,6 +8,11 @@
 
 PACKAGE=com.carriez.flutter_hbb
 SERVICE=$PACKAGE/com.carriez.flutter_hbb.InputService
+GLOG=/storage/emulated/0/RustDesk/Logs/guardian.log
+
+glog() {
+  echo "$(date '+%m-%d %H:%M:%S') $1" >> "$GLOG" 2>/dev/null
+}
 
 restore_perms() {
   # IMPORTANT: only write settings when something is actually missing.
