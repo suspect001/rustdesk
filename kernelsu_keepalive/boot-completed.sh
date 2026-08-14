@@ -8,10 +8,16 @@
 
 PACKAGE=com.carriez.flutter_hbb
 SERVICE=$PACKAGE/com.carriez.flutter_hbb.InputService
-GLOG=/storage/emulated/0/RustDesk/Logs/guardian.log
+# Log to /data/local/tmp (available immediately at boot, before user
+# storage is mounted/unlocked) AND to the sdcard dir when it exists (so
+# the app's log upload includes it).
+GLOG_D=/data/local/tmp/rustdesk_guardian.log
+GLOG_S=/storage/emulated/0/RustDesk/Logs/guardian.log
 
 glog() {
-  echo "$(date '+%m-%d %H:%M:%S') $1" >> "$GLOG" 2>/dev/null
+  LINE="$(date '+%m-%d %H:%M:%S') $1"
+  echo "$LINE" >> "$GLOG_D" 2>/dev/null
+  echo "$LINE" >> "$GLOG_S" 2>/dev/null
 }
 
 restore_perms() {
