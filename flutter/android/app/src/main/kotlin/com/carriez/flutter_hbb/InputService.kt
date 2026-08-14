@@ -295,16 +295,17 @@ class InputService : AccessibilityService() {
         try {
             val root = rootInActiveWindow ?: return false
             try {
-                // Only type into MIUI app-lock windows, never into the system
-                // keyguard (com.android.systemui / android) — the keyguard PIN
-                // pad is also an isPassword node, so typing the app lock pin
-                // there would feed a wrong pin into the lockscreen and trigger
-                // the lockout. The keyguard is handled separately by
-                // autoUnlockWithPin.
+                // Only type into known app-lock windows (MIUI / ColorOS),
+                // never into the system keyguard (com.android.systemui /
+                // android) — the keyguard PIN pad is also an isPassword node,
+                // so typing the app lock pin there would feed a wrong pin
+                // into the lockscreen and trigger the lockout. The keyguard
+                // is handled separately by autoUnlockWithPin.
                 val pkg = root.packageName ?: return false
                 val isLockWindow = pkg == "com.miui.securitycore" ||
                     pkg == "com.miui.securitycenter" ||
-                    pkg == "com.miui.securityadd"
+                    pkg == "com.miui.securityadd" ||
+                    pkg == "com.oplus.safecenter"
                 val hasField = containsPasswordField(root)
                 Log.d(logTag, "findPasswordField: active window package=$pkg, match=$isLockWindow, hasField=$hasField")
                 FileLog.log(logTag, "findPasswordField: pkg=$pkg, match=$isLockWindow, hasField=$hasField")
