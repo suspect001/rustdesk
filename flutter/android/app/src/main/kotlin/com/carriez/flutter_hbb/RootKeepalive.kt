@@ -9,6 +9,7 @@ import kotlin.concurrent.thread
 // projection) from inside the app after a reboot.
 object RootKeepalive {
     private val logTag = "RootKeepalive"
+    private var appContext: android.content.Context? = null
     private val SERVICE = "com.carriez.flutter_hbb/com.carriez.flutter_hbb.InputService"
     private val PACKAGE = "com.carriez.flutter_hbb"
 
@@ -22,11 +23,20 @@ object RootKeepalive {
         "/system/xbin/su"
     )
 
-    fun tryApply() {
+    fun tryApply(context: android.content.Context) {
+        appContext = context
         thread {
             try {
                 val su = findRootSu() ?: run {
                     FileLog.log(logTag, "no usable su found")
+                    // root manager (KernelSU/Magisk) may be denying the app;
+                    // guide the user to whitelist it
+                    sendGuideNotification(
+                        appContext!!,
+                        "检测到 root 但未获授权:请在 KernelSU/超级用户中允许 RustDesk 后重启 app",
+                        null,
+                        notifyId = 2037
+                    )
                     return@thread
                 }
                 FileLog.log(logTag, "root detected via $su, applying keepalive settings")
@@ -58,20 +68,45 @@ object RootKeepalive {
     }
 
     private fun findRootSu(): String? {
+        // also try resolving `su` through the shell PATH (KernelSU/Magisk
+        // compatible builds may place it in various locations)
+        try {
+            val which = ProcessBuilder("sh", "-c", "command -v su").redirectErrorStream(true).start()
+            if (which.waitFor(5, TimeUnit.SECONDS)) {
+                val path = which.inputStream.bufferedReader().use { it.readText() }.trim()
+                if (path.isNotEmpty() && !SU_CANDIDATES.contains(path)) {
+                    return testSu(path)
+                }
+            }
+        } catch (e: Exception) {
+        }
         for (candidate in SU_CANDIDATES) {
             try {
-                val p = ProcessBuilder(candidate, "-c", "id").redirectErrorStream(true).start()
-                if (p.waitFor(5, TimeUnit.SECONDS)) {
-                    val out = p.inputStream.bufferedReader().use { it.readText() }
-                    if (p.exitValue() == 0 && out.contains("uid=0")) {
-                        return candidate
-                    }
-                } else {
-                    p.destroy()
-                }
+                val su = testSu(candidate)
+                if (su != null) return su
             } catch (e: Exception) {
-                // candidate not found, try next
             }
+        }
+        return null
+    }
+
+    private fun testSu(candidate: String): String? {
+        try {
+            val p = ProcessBuilder(candidate, "-c", "id").redirectErrorStream(true).start()
+            if (p.waitFor(5, TimeUnit.SECONDS)) {
+                val out = p.inputStream.bufferedReader().use { it.readText() }
+                if (p.exitValue() == 0 && out.contains("uid=0")) {
+                    return candidate
+                } else {
+                    // su exists but was denied (e.g. not whitelisted in the
+                    // root manager): log the reason for diagnostics
+                    FileLog.log(logTag, "su '$candidate' rejected: exit=${p.exitValue()}, out=${out.trim()}")
+                }
+            } else {
+                p.destroy()
+            }
+        } catch (e: Exception) {
+            // candidate not found, try next
         }
         return null
     }
