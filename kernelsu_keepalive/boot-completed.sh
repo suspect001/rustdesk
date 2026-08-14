@@ -28,8 +28,11 @@ restore_perms() {
   # 2. Allow media projection without the confirmation dialog (Android 10+).
   appops set "$PACKAGE" PROJECT_MEDIA allow
 
-  # 3. Make sure the controlled service is running.
-  am start-service -n "$PACKAGE/com.carriez.flutter_hbb.MainService" --ez EXT_INIT_FROM_BOOT true >/dev/null 2>&1
+  # 3. Make sure the controlled service is running. The action is
+  #    REQUIRED: without it onStartCommand skips the media projection
+  #    request block and screen capture stays un-granted.
+  am start-service -n "$PACKAGE/com.carriez.flutter_hbb.MainService" \
+    -a INIT_MEDIA_PROJECTION_AND_SERVICE --ez EXT_INIT_FROM_BOOT true >/dev/null 2>&1
 }
 
 restore_perms
