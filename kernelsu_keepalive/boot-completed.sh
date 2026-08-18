@@ -81,6 +81,23 @@ restore_perms() {
     glog "process not running, starting service"
     am start-service -n "$PACKAGE/com.carriez.flutter_hbb.MainService" \
       -a INIT_MEDIA_PROJECTION_AND_SERVICE --ez EXT_INIT_FROM_BOOT true >/dev/null 2>&1
+    sleep 5
+  fi
+  if ! pidof "$PACKAGE" >/dev/null 2>&1; then
+    # Package may be in "stopped" state (persists across reboot after an
+    # APK install/update or force-stop): try the explicit wake broadcast.
+    glog "still not running, broadcasting wake"
+    am broadcast -f 0x20 -a "$PACKAGE.DEBUG_BOOT_COMPLETED" -p "$PACKAGE" >/dev/null 2>&1
+    sleep 5
+  fi
+  if ! pidof "$PACKAGE" >/dev/null 2>&1; then
+    # Last resort: launching the activity is the only thing that reliably
+    # clears the stopped state. The Flutter UI auto-starts the service on
+    # launch; press HOME afterwards so the UI is not left on screen.
+    glog "still not running, launching activity to clear stopped state"
+    am start -n "$PACKAGE/com.carriez.flutter_hbb.MainActivity" >/dev/null 2>&1
+    sleep 8
+    input keyevent KEYCODE_HOME >/dev/null 2>&1
   fi
 }
 
