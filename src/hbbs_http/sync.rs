@@ -89,6 +89,8 @@ async fn start_hbbs_sync_async() {
         TIME_CONN,
     ));
     let mut last_sent: Option<Instant> = None;
+    let mut hbbs_fail_count: u32 = 0;
+    let mut hbbs_last_fail: Option<Instant> = None;
     let mut info_uploaded = InfoUploaded::default();
     let mut sysinfo_ver = "".to_owned();
     loop {
@@ -102,6 +104,15 @@ async fn start_hbbs_sync_async() {
                 }
                 if config::option2bool("stop-service", &Config::get_option("stop-service")) {
                     continue;
+                }
+                // Back off while the API server is unreachable: a dead
+                // api-server otherwise keeps the mobile radio awake with
+                // timeouts every 15s (device heats up while idle).
+                if hbbs_fail_count > 0 {
+                    let backoff = TIME_HEARTBEAT * hbbs_fail_count.min(120);
+                    if hbbs_last_fail.map(|x| x.elapsed() < backoff).unwrap_or(false) {
+                        continue;
+                    }
                 }
                 let conns = Connection::alive_conns();
                 if info_uploaded.uploaded && (url != info_uploaded.url || id != info_uploaded.id) {
@@ -196,6 +207,8 @@ async fn start_hbbs_sync_async() {
                                     x == ver
                                 }
                                 _ => {
+                                    hbbs_fail_count += 1;
+                                    hbbs_last_fail = Some(Instant::now());
                                     false // to make sure Pro can be assigned in below post for old
                                             // hbbs pro not supporting sysinfo_ver, use false for ensuring
                                 }
@@ -225,6 +238,8 @@ async fn start_hbbs_sync_async() {
                         }
                         _ => {
                             info_uploaded.last_uploaded = Some(Instant::now());
+                            hbbs_fail_count += 1;
+                            hbbs_last_fail = Some(Instant::now());
                         }
                     }
                 }
@@ -242,6 +257,8 @@ async fn start_hbbs_sync_async() {
                 let modified_at = LocalConfig::get_option("strategy_timestamp").parse::<i64>().unwrap_or(0);
                 v["modified_at"] = json!(modified_at);
                 if let Ok(s) = crate::post_request(url.clone(), v.to_string(), "").await {
+                    hbbs_fail_count = 0;
+                    hbbs_last_fail = None;
                     if let Ok(mut rsp) = serde_json::from_str::<HashMap::<&str, Value>>(&s) {
                         if rsp.remove("sysinfo").is_some() {
                             info_uploaded.uploaded = false;
@@ -267,6 +284,9 @@ async fn start_hbbs_sync_async() {
                             }
                         }
                     }
+                } else {
+                    hbbs_fail_count += 1;
+                    hbbs_last_fail = Some(Instant::now());
                 }
             }
         }
