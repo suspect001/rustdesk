@@ -65,6 +65,14 @@ restore_perms() {
     *) appops set "$PACKAGE" PROJECT_MEDIA allow ;;
   esac
 
+  # 2b. Doze whitelist: while asleep, Doze cuts background network — the
+  #     15s UDP keepalive to the rendezvous server stops and the peer goes
+  #     "offline" until the screen is touched. Whitelisted apps keep
+  #     network access during Doze. Persisted, but re-apply in case an
+  #     OTA resets it.
+  dumpsys deviceidle whitelist 2>/dev/null | grep -q "$PACKAGE" || \
+    dumpsys deviceidle whitelist "+$PACKAGE" >/dev/null 2>&1
+
   # 3. Make sure the controlled service is running — but only after the
   #    user has UNLOCKED the device. Before first unlock (Direct Boot
   #    state) the app's components are locked and any start attempt fails
